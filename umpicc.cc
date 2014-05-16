@@ -57,7 +57,11 @@ int main(int argc, char **argv)
 
 	std::string prefix = std::string(args[0], 0, args[0].rfind("bin/"));
 
-	std::vector<std::string> command = { "gcc" };
+	std::vector<std::string> command;
+	if (std::string(args[0], args[0].rfind("mpi")) == "mpicc")
+		command.push_back("gcc");
+	else
+		command.push_back("g++");
 	std::vector<std::string> compile = { "-pthread", "-I" + prefix + "include" };
 	std::vector<std::string> link = { "-Wl,-rpath," + prefix + "lib", "-L" + prefix + "lib", "-lumpi" };
 
