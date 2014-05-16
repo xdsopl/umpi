@@ -21,7 +21,7 @@ public:
 	typedef T element_type;
 
 	based_ptr(std::nullptr_t = nullptr)
-	: ptr_(static_cast<uint8_t *>(nullptr) - static_cast<uint8_t *>(*addr))
+	: ptr_(std::numeric_limits<ptrdiff_t>::min())
 	{}
 
 	based_ptr(element_type *ptr)
@@ -33,7 +33,7 @@ public:
 	: ptr_(other.ptr_)
 	{}
 
-	explicit operator bool() const { return ptr_ != static_cast<uint8_t *>(nullptr) - static_cast<uint8_t *>(*addr); }
+	explicit operator bool() const { return ptr_ != std::numeric_limits<ptrdiff_t>::min(); }
 
 	bool operator==(const based_ptr &other) const { return ptr_ == other.ptr_; }
 	bool operator!=(const based_ptr &other) const { return ptr_ != other.ptr_; }
@@ -76,7 +76,7 @@ public:
 	typedef void element_type;
 
 	based_ptr(std::nullptr_t = nullptr)
-	: ptr_(static_cast<uint8_t *>(nullptr) - static_cast<uint8_t *>(*addr))
+	: ptr_(std::numeric_limits<ptrdiff_t>::min())
 	{}
 
 	based_ptr(void *ptr)
@@ -88,7 +88,7 @@ public:
 	: ptr_(other.ptr_)
 	{}
 
-	explicit operator bool() const { return ptr_ != static_cast<uint8_t *>(nullptr) - static_cast<uint8_t *>(*addr); }
+	explicit operator bool() const { return ptr_ != std::numeric_limits<ptrdiff_t>::min(); }
 
 	bool operator==(const based_ptr &other) const { return ptr_ == other.ptr_; }
 	bool operator!=(const based_ptr &other) const { return ptr_ != other.ptr_; }
