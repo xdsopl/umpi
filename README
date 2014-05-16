@@ -1,0 +1,12 @@
+umpi - intentionally small and simple MPI implementation
+Written in 2014 by <Ahmet Inan> <xdsopl@googlemail.com>
+To the extent possible under law, the author(s) have dedicated all copyright and related and neighboring rights to this software to the public domain worldwide. This software is distributed without any warranty.
+You should have received a copy of the CC0 Public Domain Dedication along with this software. If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
+
+umpi is written arround process_vm_readv and process_vm_writev in C++11 and uses libc++ for its full C++11 support.
+To ease the IPC over shared memory, it uses based_ptr, which only saves the offset to a base address (e.g. the starting address of the shared memory map).
+Finally, a pool allocator using based_ptr and the nice libc++ allows us to use std containers for the IPC.
+
+Processes communicate entirely over shared memory and no sockets get opened.
+This allows us to start thousands of processes on a single shared memory Computer.
+
