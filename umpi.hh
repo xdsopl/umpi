@@ -14,6 +14,7 @@ You should have received a copy of the CC0 Public Domain Dedication along with t
 #include "ipc.hh"
 
 #include <list>
+#include <forward_list>
 #include <unistd.h>
 
 static const int UMPI_OUTSTANDING_REQUESTS_PER_PROCESS = 16;
@@ -53,14 +54,15 @@ typedef struct umpi_comm {} *MPI_Comm;
 struct umpi_iovec {
 	umpi_iovec() : dis_(0), len_(0) {}
 	umpi_iovec(umpi_id id, size_t len) : dis_(id), len_(len) {}
-	umpi_id id() { return (umpi_id)dis_; }
-	bool scattered() { return id() == UMPI_ID_SCATTERED; }
-	bool contiguous() { return id() != UMPI_ID_SCATTERED; }
-	size_t size() { return scattered() ? len_ + 2 : 1; }
-	size_t count() { return scattered() ? len_ : 1; }
-	ptrdiff_t stride() { return contiguous() ? len_ : this[1].dis_; }
-	size_t len() { return contiguous() ? len_ : this[1].len_; }
-	bool derived() { return id() == UMPI_ID_CONTIGUOUS || id() == UMPI_ID_SCATTERED; }
+	umpi_id id() const { return (umpi_id)dis_; }
+	bool scattered() const { return id() == UMPI_ID_SCATTERED; }
+	bool contiguous() const { return id() != UMPI_ID_SCATTERED; }
+	size_t size() const { return scattered() ? len_ + 2 : 1; }
+	size_t count() const { return scattered() ? len_ : 1; }
+	ptrdiff_t stride() const { return contiguous() ? len_ : this[1].dis_; }
+	size_t len() const { return contiguous() ? len_ : this[1].len_; }
+	bool derived() const { return id() == UMPI_ID_CONTIGUOUS || id() == UMPI_ID_SCATTERED; }
+	bool operator==(const umpi_iovec &other) const { return size() == other.size() && !memcmp(this, &other, sizeof(umpi_iovec) * size()); }
 	ptrdiff_t dis_;
 	size_t len_;
 };
@@ -73,13 +75,13 @@ typedef struct umpi_datatype {
 		if (!committed())
 			delete &(*iovec_);
 	}
-	ptrdiff_t stride() { return iovec_->stride(); }
-	size_t len() { return iovec_->len(); }
-	umpi_id id() { return iovec_->id(); }
-	bool scattered() { return iovec_->scattered(); }
-	bool contiguous() { return iovec_->contiguous(); }
-	bool derived() { return iovec_->derived(); }
-	bool committed()
+	ptrdiff_t stride() const { return iovec_->stride(); }
+	size_t len() const { return iovec_->len(); }
+	umpi_id id() const { return iovec_->id(); }
+	bool scattered() const { return iovec_->scattered(); }
+	bool contiguous() const { return iovec_->contiguous(); }
+	bool derived() const { return iovec_->derived(); }
+	bool committed() const
 	{
 		void *begin = mmap_addr;
 		void *end = static_cast<uint8_t *>(mmap_addr) + mmap_len;
@@ -212,12 +214,15 @@ struct shared {
 		procs = process_allocator::allocate(size);
 	}
 	void init(int rank);
+	void commit(iovec_pointer &iovec);
 	collect *get_current_slot();
 	ipc::barrier barrier;
 	process_pointer procs;
 private:
+	ipc::mutex mutex_;
 	void_pool pool_state_;
 	collect slots_[UMPI_OUTSTANDING_REQUESTS_PER_PROCESS];
+	std::forward_list<iovec_pointer, void_allocator::rebind<iovec_pointer>::other> commited_;
 	umpi_iovec iovec_packed_;
 	umpi_iovec iovec_byte_;
 	umpi_iovec iovec_char_;

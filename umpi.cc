@@ -249,17 +249,32 @@ int MPI_Type_create_resized(MPI_Datatype oldtype, MPI_Aint lb, MPI_Aint extent, 
 	return MPI_SUCCESS;
 }
 
+void shared::commit(iovec_pointer &iovec)
+{
+	mutex_.lock();
+	for (auto &e: commited_) {
+		if (*e == *iovec) {
+			mutex_.unlock();
+			delete &(*iovec);
+			iovec = e;
+			return;
+		}
+	}
+	size_t size = iovec->size();
+	iovec_pointer tmp = void_allocator::rebind<umpi_iovec>::other::allocate(size);
+	std::copy(iovec, iovec + size, tmp);
+	commited_.emplace_front(tmp);
+	mutex_.unlock();
+	delete &(*iovec);
+	iovec = tmp;
+}
+
 int MPI_Type_commit(MPI_Datatype *datatype)
 {
 	if (!umpi || !datatype || !*datatype || !(*datatype)->iovec_)
 		return MPI_FAIL;
-	if (!(*datatype)->committed()) {
-		size_t size = (*datatype)->iovec_->size();
-		iovec_pointer iovec = void_allocator::rebind<umpi_iovec>::other::allocate(size);
-		std::copy((*datatype)->iovec_, (*datatype)->iovec_ + size, iovec);
-		delete &(*(*datatype)->iovec_);
-		(*datatype)->iovec_ = iovec;
-	}
+	if (!(*datatype)->committed())
+		umpi->shared->commit((*datatype)->iovec_);
 	return MPI_SUCCESS;
 }
 
