@@ -458,23 +458,25 @@ int cookie::write_to_owner(const void *buf, iovec_pointer iovec, int count, int 
 	struct iovec local_iov[liovcnt];
 	if (iovec->scattered()) {
 		ptrdiff_t stride = iovec->stride();
-		for (int j = 0; j < count; j++)
+		struct iovec *iov = local_iov;
+		for (int j = skip * count; j < (skip + 1) * count; j++)
 			for (size_t i = 0; i < iovec->count(); i++)
-				local_iov[j * iovec->count() + i] = (struct iovec){
-					static_cast<uint8_t *>(const_cast<void *>(buf)) + (j + skip * count) * stride + iovec[i+2].dis_,
+				*iov++ = (struct iovec){
+					static_cast<uint8_t *>(const_cast<void *>(buf)) + j * stride + iovec[i+2].dis_,
 					iovec[i+2].len_
 				};
 	} else {
 		local_iov[0] = (struct iovec){ static_cast<uint8_t *>(const_cast<void *>(buf)) + skip * total_bytes, total_bytes };
 	}
-	size_t riovcnt = iovec_->scattered() ? iovec_->count() * size_ : 1;
+	size_t riovcnt = iovec_->scattered() ? iovec_->count() * (size_ - seek * count_) : 1;
 	struct iovec remote_iov[riovcnt];
 	if (iovec_->scattered()) {
 		ptrdiff_t stride = iovec_->stride();
-		for (int j = 0; j < size_; j++)
+		struct iovec *iov = remote_iov;
+		for (int j = seek * count_; j < size_; j++)
 			for (size_t i = 0; i < iovec_->count(); i++)
-				remote_iov[j * iovec_->count() + i] = (struct iovec){
-					static_cast<uint8_t *>(buf_) + (j + seek * count_) * stride + iovec_[i+2].dis_,
+				*iov++ = (struct iovec){
+					static_cast<uint8_t *>(buf_) + j * stride + iovec_[i+2].dis_,
 					iovec_[i+2].len_
 				};
 	} else {
@@ -508,23 +510,25 @@ int cookie::read_from_owner(void *buf, iovec_pointer iovec, int size, int count,
 	struct iovec local_iov[liovcnt];
 	if (iovec->scattered()) {
 		ptrdiff_t stride = iovec->stride();
-		for (int j = 0; j < count; j++)
+		struct iovec *iov = local_iov;
+		for (int j = seek * count; j < (seek + 1) * count; j++)
 			for (size_t i = 0; i < iovec->count(); i++)
-				local_iov[j * iovec->count() + i] = (struct iovec){
-					static_cast<uint8_t *>(const_cast<void *>(buf)) + (j + seek * count) * stride + iovec[i+2].dis_,
+				*iov++ = (struct iovec){
+					static_cast<uint8_t *>(const_cast<void *>(buf)) + j * stride + iovec[i+2].dis_,
 					iovec[i+2].len_
 				};
 	} else {
 		local_iov[0] = (struct iovec){ static_cast<uint8_t *>(const_cast<void *>(buf)) + seek * total_bytes, total_bytes };
 	}
-	size_t riovcnt = iovec_->scattered() ? iovec_->count() * size_ : 1;
+	size_t riovcnt = iovec_->scattered() ? iovec_->count() * (size_ - skip * count_) : 1;
 	struct iovec remote_iov[riovcnt];
 	if (iovec_->scattered()) {
 		ptrdiff_t stride = iovec_->stride();
-		for (int j = 0; j < size_; j++)
+		struct iovec *iov = remote_iov;
+		for (int j = skip * count_; j < size_; j++)
 			for (size_t i = 0; i < iovec_->count(); i++)
-				remote_iov[j * iovec_->count() + i] = (struct iovec){
-					static_cast<uint8_t *>(buf_) + (j + skip * count_) * stride + iovec_[i+2].dis_,
+				*iov++ = (struct iovec){
+					static_cast<uint8_t *>(buf_) + j * stride + iovec_[i+2].dis_,
 					iovec_[i+2].len_
 				};
 	} else {
