@@ -428,13 +428,47 @@ size_t umpi_copy(const void *read_buf, iovec_pointer read_iovec, int read_count,
 	size_t total_bytes = read_count * read_iovec->len();
 	if (total_bytes > write_count * write_iovec->len())
 		return 0;
-	// TODO: scattered ..
-	if (read_iovec->contiguous() && write_iovec->contiguous())
+	if (read_iovec->contiguous() && write_iovec->contiguous()) {
 		memcpy(
 			static_cast<uint8_t *>(write_buf) + write_seek * total_bytes,
 			static_cast<const uint8_t *>(read_buf) + read_skip * total_bytes,
 			total_bytes
 		);
+		return total_bytes;
+	}
+	// TODO: do this without process_vm_writev or process_vm_readv
+	size_t liovcnt = read_iovec->scattered() ? read_iovec->count() * read_count : 1;
+	struct iovec local_iov[liovcnt];
+	if (read_iovec->scattered()) {
+		ptrdiff_t stride = read_iovec->stride();
+		struct iovec *iov = local_iov;
+		for (int j = read_skip * read_count; j < (read_skip + 1) * read_count; j++)
+			for (size_t i = 0; i < read_iovec->count(); i++)
+				*iov++ = (struct iovec){
+					static_cast<uint8_t *>(const_cast<void *>(read_buf)) + j * stride + read_iovec[i+2].dis_,
+					read_iovec[i+2].len_
+				};
+	} else {
+		local_iov[0] = (struct iovec){ static_cast<uint8_t *>(const_cast<void *>(read_buf)) + read_skip * total_bytes, total_bytes };
+	}
+	size_t riovcnt = write_iovec->scattered() ? write_iovec->count() * write_count : 1;
+	struct iovec remote_iov[riovcnt];
+	if (write_iovec->scattered()) {
+		ptrdiff_t stride = write_iovec->stride();
+		struct iovec *iov = remote_iov;
+		for (int j = write_seek * write_count; j < (write_seek + 1) * write_count; j++)
+			for (size_t i = 0; i < write_iovec->count(); i++)
+				*iov++ = (struct iovec){
+					static_cast<uint8_t *>(write_buf) + j * stride + write_iovec[i+2].dis_,
+					write_iovec[i+2].len_
+				};
+	} else {
+		remote_iov[0] = (struct iovec){ static_cast<uint8_t *>(write_buf) + write_seek * total_bytes, total_bytes };
+	}
+	if ((ssize_t)total_bytes != process_vm_writev(umpi->self->pid_, local_iov, liovcnt, remote_iov, riovcnt, 0)) {
+		perror("process_vm_writev");
+		return 0;
+	}
 	return total_bytes;
 }
 
