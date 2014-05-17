@@ -37,6 +37,7 @@ int main(int argc, char **argv)
 		float _12[2];
 		char _d;
 	} recv[size];
+	memset(recv, 0, sizeof(recv));
 	MPI_Datatype tmp, recv_type, send_type;
 	int recv_blocklengths[] = { 1, 2, 2, 1, 1, 1, 1, 1 };
 	MPI_Aint recv_displacements[] = {
