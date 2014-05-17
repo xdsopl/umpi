@@ -457,24 +457,24 @@ int cookie::write_to_owner(const void *buf, iovec_pointer iovec, int count, int 
 	size_t liovcnt = iovec->scattered() ? iovec->count() * count : 1;
 	struct iovec local_iov[liovcnt];
 	if (iovec->scattered()) {
-		ptrdiff_t stride = count * iovec->stride();
+		ptrdiff_t stride = iovec->stride();
 		for (int j = 0; j < count; j++)
 			for (size_t i = 0; i < iovec->count(); i++)
 				local_iov[j * iovec->count() + i] = (struct iovec){
-					static_cast<uint8_t *>(const_cast<void *>(buf)) + (j + skip) * stride + iovec[i+2].dis_,
+					static_cast<uint8_t *>(const_cast<void *>(buf)) + (j + skip * count) * stride + iovec[i+2].dis_,
 					iovec[i+2].len_
 				};
 	} else {
 		local_iov[0] = (struct iovec){ static_cast<uint8_t *>(const_cast<void *>(buf)) + skip * total_bytes, total_bytes };
 	}
-	size_t riovcnt = iovec_->scattered() ? iovec_->count() * count_ : 1;
+	size_t riovcnt = iovec_->scattered() ? iovec_->count() * size_ : 1;
 	struct iovec remote_iov[riovcnt];
 	if (iovec_->scattered()) {
-		ptrdiff_t stride = count_ * iovec_->stride();
-		for (int j = 0; j < count_; j++)
+		ptrdiff_t stride = iovec_->stride();
+		for (int j = 0; j < size_; j++)
 			for (size_t i = 0; i < iovec_->count(); i++)
 				remote_iov[j * iovec_->count() + i] = (struct iovec){
-					static_cast<uint8_t *>(buf_) + (j + seek) * stride + iovec_[i+2].dis_,
+					static_cast<uint8_t *>(buf_) + (j + seek * count_) * stride + iovec_[i+2].dis_,
 					iovec_[i+2].len_
 				};
 	} else {
@@ -507,24 +507,24 @@ int cookie::read_from_owner(void *buf, iovec_pointer iovec, int size, int count,
 	size_t liovcnt = iovec->scattered() ? iovec->count() * count : 1;
 	struct iovec local_iov[liovcnt];
 	if (iovec->scattered()) {
-		ptrdiff_t stride = count * iovec->stride();
+		ptrdiff_t stride = iovec->stride();
 		for (int j = 0; j < count; j++)
 			for (size_t i = 0; i < iovec->count(); i++)
 				local_iov[j * iovec->count() + i] = (struct iovec){
-					static_cast<uint8_t *>(const_cast<void *>(buf)) + (j + seek) * stride + iovec[i+2].dis_,
+					static_cast<uint8_t *>(const_cast<void *>(buf)) + (j + seek * count) * stride + iovec[i+2].dis_,
 					iovec[i+2].len_
 				};
 	} else {
 		local_iov[0] = (struct iovec){ static_cast<uint8_t *>(const_cast<void *>(buf)) + seek * total_bytes, total_bytes };
 	}
-	size_t riovcnt = iovec_->scattered() ? iovec_->count() * count_ : 1;
+	size_t riovcnt = iovec_->scattered() ? iovec_->count() * size_ : 1;
 	struct iovec remote_iov[riovcnt];
 	if (iovec_->scattered()) {
-		ptrdiff_t stride = count_ * iovec_->stride();
-		for (int j = 0; j < count_; j++)
+		ptrdiff_t stride = iovec_->stride();
+		for (int j = 0; j < size_; j++)
 			for (size_t i = 0; i < iovec_->count(); i++)
 				remote_iov[j * iovec_->count() + i] = (struct iovec){
-					static_cast<uint8_t *>(buf_) + (j + skip) * stride + iovec_[i+2].dis_,
+					static_cast<uint8_t *>(buf_) + (j + skip * count_) * stride + iovec_[i+2].dis_,
 					iovec_[i+2].len_
 				};
 	} else {
@@ -581,7 +581,7 @@ int collect::bcast_request(MPI_Request *request, void *buf, int count, MPI_Datat
 			cookie->owner_->move_to_pending(box_, cookie);
 		mutex_.unlock();
 		*request = &(*cookie);
-		return cookie->read_from_owner(buf, datatype->iovec_, count);
+		return cookie->read_from_owner(buf, datatype->iovec_, count, count);
 	}
 	*request = create_request(box_, buf, datatype->iovec_, count, count, umpi->rank, UMPI_TAG_BCAST);
 
@@ -652,7 +652,7 @@ int collect::allgather_request(MPI_Request *request, const void *sendbuf, int se
 	mutex_.unlock();
 
 	first->owner_->move_to_pending(todo, first);
-	first->read_from_owner(recvbuf, recvtype->iovec_, recvcount * umpi->size);
+	first->read_from_owner(recvbuf, recvtype->iovec_, recvcount * umpi->size, recvcount * umpi->size);
 
 	for (auto cookie = todo.begin(); cookie != todo.end();) {
 		auto pending = cookie++;
@@ -676,7 +676,7 @@ int collect::allreduce_request(MPI_Request *request, const void *sendbuf, void *
 	if (joined_first()) {
 		umpi_copy(sendbuf, datatype->iovec_, count, 0, recvbuf, datatype->iovec_, count, 0);
 	} else {
-		int ret = box_.back().read_from_owner(recvbuf, datatype->iovec_, count);
+		int ret = box_.back().read_from_owner(recvbuf, datatype->iovec_, count, count);
 		if (ret)
 			return ret;
 		(*op)(sendbuf, recvbuf, &count, &datatype);
