@@ -63,6 +63,8 @@ struct umpi_iovec {
 	size_t len() const { return contiguous() ? len_ : this[1].len_; }
 	bool derived() const { return id() == UMPI_ID_CONTIGUOUS || id() == UMPI_ID_SCATTERED; }
 	bool operator==(const umpi_iovec &other) const { return size() == other.size() && !memcmp(this, &other, sizeof(umpi_iovec) * size()); }
+	struct umpi_iovec *begin() { return this + (scattered() ? 2 : 0); }
+	struct umpi_iovec *end() { return this + size(); }
 	ptrdiff_t dis_;
 	size_t len_;
 };
