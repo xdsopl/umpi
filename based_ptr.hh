@@ -25,7 +25,7 @@ public:
 	{}
 
 	based_ptr(element_type *ptr)
-	: ptr_(reinterpret_cast<uint8_t *>(ptr) - static_cast<uint8_t *>(*addr))
+	: ptr_(!ptr ? std::numeric_limits<ptrdiff_t>::min() : reinterpret_cast<uint8_t *>(ptr) - static_cast<uint8_t *>(*addr))
 	{}
 
 	template<class U>
@@ -80,7 +80,7 @@ public:
 	{}
 
 	based_ptr(void *ptr)
-	: ptr_(static_cast<uint8_t *>(ptr) - static_cast<uint8_t *>(*addr))
+	: ptr_(!ptr ? std::numeric_limits<ptrdiff_t>::min() : static_cast<uint8_t *>(ptr) - static_cast<uint8_t *>(*addr))
 	{}
 
 	template<class U>
