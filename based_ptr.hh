@@ -17,15 +17,16 @@ template<class T, void **addr>
 class based_ptr {
 	template<class, void **> friend class based_ptr;
 	explicit based_ptr(ptrdiff_t ptr) : ptr_(ptr) {}
+	static const ptrdiff_t nullptr_ = std::numeric_limits<ptrdiff_t>::min();
 public:
 	typedef T element_type;
 
 	based_ptr(std::nullptr_t = nullptr)
-	: ptr_(std::numeric_limits<ptrdiff_t>::min())
+	: ptr_(nullptr_)
 	{}
 
 	based_ptr(element_type *ptr)
-	: ptr_(!ptr ? std::numeric_limits<ptrdiff_t>::min() : reinterpret_cast<uint8_t *>(ptr) - static_cast<uint8_t *>(*addr))
+	: ptr_(!ptr ? nullptr_ : reinterpret_cast<uint8_t *>(ptr) - static_cast<uint8_t *>(*addr))
 	{}
 
 	template<class U>
@@ -33,7 +34,7 @@ public:
 	: ptr_(other.ptr_)
 	{}
 
-	explicit operator bool() const { return ptr_ != std::numeric_limits<ptrdiff_t>::min(); }
+	explicit operator bool() const { return ptr_ != nullptr_; }
 
 	bool operator==(const based_ptr &other) const { return ptr_ == other.ptr_; }
 	bool operator!=(const based_ptr &other) const { return ptr_ != other.ptr_; }
@@ -72,15 +73,16 @@ template<void **addr>
 class based_ptr<void, addr> {
 	template<class, void **> friend class based_ptr;
 	explicit based_ptr(ptrdiff_t ptr) : ptr_(ptr) {}
+	static const ptrdiff_t nullptr_ = std::numeric_limits<ptrdiff_t>::min();
 public:
 	typedef void element_type;
 
 	based_ptr(std::nullptr_t = nullptr)
-	: ptr_(std::numeric_limits<ptrdiff_t>::min())
+	: ptr_(nullptr_)
 	{}
 
 	based_ptr(void *ptr)
-	: ptr_(!ptr ? std::numeric_limits<ptrdiff_t>::min() : static_cast<uint8_t *>(ptr) - static_cast<uint8_t *>(*addr))
+	: ptr_(!ptr ? nullptr_ : static_cast<uint8_t *>(ptr) - static_cast<uint8_t *>(*addr))
 	{}
 
 	template<class U>
@@ -88,7 +90,7 @@ public:
 	: ptr_(other.ptr_)
 	{}
 
-	explicit operator bool() const { return ptr_ != std::numeric_limits<ptrdiff_t>::min(); }
+	explicit operator bool() const { return ptr_ != nullptr_; }
 
 	bool operator==(const based_ptr &other) const { return ptr_ == other.ptr_; }
 	bool operator!=(const based_ptr &other) const { return ptr_ != other.ptr_; }
