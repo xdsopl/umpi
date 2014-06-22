@@ -10,9 +10,18 @@ You should have received a copy of the CC0 Public Domain Dedication along with t
 #include <iostream>
 #include <stdio.h>
 #include <unistd.h>
+#include <limits.h>
+#include <stdlib.h>
 
 int main(int argc, char **argv)
 {
+	char tmp[PATH_MAX];
+	if (!realpath(argv[0], tmp)) {
+		std::cerr << "cant get real path from: \"" << argv[0] << "\"" << std::endl;
+		return 1;
+	}
+	std::string real_path(tmp);
+
 	bool showme = false;
 	bool commanding = true;
 	bool compiling = true;
@@ -55,7 +64,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	std::string prefix = std::string(args[0], 0, args[0].rfind("bin/"));
+	std::string prefix = std::string(real_path, 0, real_path.rfind("bin/"));
 
 	std::vector<std::string> command;
 	if (std::string(args[0], args[0].rfind("mpi")) == "mpicc")
