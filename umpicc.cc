@@ -17,7 +17,7 @@ int main(int argc, char **argv)
 {
 	char tmp[PATH_MAX];
 	if (!realpath(argv[0], tmp)) {
-		std::cerr << "cant get real path from: \"" << argv[0] << "\"" << std::endl;
+		perror("cant get real path");
 		return 1;
 	}
 	std::string real_path(tmp);
