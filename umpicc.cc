@@ -16,11 +16,12 @@ You should have received a copy of the CC0 Public Domain Dedication along with t
 int main(int argc, char **argv)
 {
 	char tmp[PATH_MAX];
-	if (!realpath(argv[0], tmp)) {
-		perror("cant get real path");
+	ssize_t cnt = readlink("/proc/self/exe", tmp, PATH_MAX);
+	if (cnt <= 0) {
+		perror("cant get path to executable");
 		return 1;
 	}
-	std::string real_path(tmp);
+	std::string real_path(tmp, cnt);
 
 	bool showme = false;
 	bool commanding = true;
