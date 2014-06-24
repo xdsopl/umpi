@@ -240,12 +240,12 @@ private:
 	umpi_iovec iovec_long_double_;
 };
 
-static size_t calc_mmap_len(size_t size)
+static size_t calc_mmap_len(int size)
 {
 	size_t page_size = sysconf(_SC_PAGE_SIZE);
 	size_t header_len = sizeof(shared) + sizeof(process) * size;
 	size_t cookie_len = sizeof(cookie) + 2 * sizeof(cookie_pointer);
-	size_t pool_len = cookie_len * UMPI_OUTSTANDING_REQUESTS_PER_PROCESS * size;
+	size_t pool_len = cookie_len * std::max(UMPI_OUTSTANDING_REQUESTS_PER_PROCESS, size) * size;
 	return (header_len + pool_len + (page_size - 1)) & ~(page_size - 1);
 }
 
