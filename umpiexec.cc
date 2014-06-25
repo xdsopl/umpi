@@ -8,6 +8,7 @@ You should have received a copy of the CC0 Public Domain Dedication along with t
 #include "umpi.hh"
 #include <sys/wait.h>
 #include <sys/mman.h>
+#include <fstream>
 
 int main(int argc, char **argv)
 {
@@ -93,13 +94,8 @@ int main(int argc, char **argv)
 					perror("remove");
 				return 1;
 			}
-			FILE *file = fopen("/proc/self/oom_score_adj", "w");
-			if (!file) {
-				perror("could not open /proc/self/oom_score_adj for writing");
-			} else {
-				fprintf(file, "500\n");
-				fclose(file);
-			}
+			std::ofstream("/proc/self/oom_score_adj") << 500 << std::endl;
+
 			execvp(argv[3], argv+3);
 			perror("execvp");
 			return 1;
