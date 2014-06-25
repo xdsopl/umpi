@@ -10,16 +10,16 @@ You should have received a copy of the CC0 Public Domain Dedication along with t
 
 #include <stddef.h>
 
-#define MPI_MAX_PROCESSOR_NAME 256
-#define MPI_SUCCESS 0
-#define MPI_FAIL 1
-#define MPI_ERR_IN_STATUS 2
-#define MPI_ANY_SOURCE -1
-#define MPI_ANY_TAG -1
-
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+static const size_t MPI_MAX_PROCESSOR_NAME = 256;
+static const int MPI_SUCCESS = 0;
+static const int MPI_FAIL = 1;
+static const int MPI_ERR_IN_STATUS = 2;
+static const int MPI_ANY_SOURCE = -1;
+static const int MPI_ANY_TAG = -1;
 
 typedef struct umpi_comm *MPI_Comm;
 extern MPI_Comm MPI_COMM_WORLD;
