@@ -10,12 +10,13 @@ You should have received a copy of the CC0 Public Domain Dedication along with t
 
 #include <stddef.h>
 
+#define MPI_VERSION 3
+#define MPI_SUBVERSION 0
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-static const int MPI_VERSION = 3;
-static const int MPI_SUBVERSION = 0;
 static const int MPI_MAX_PROCESSOR_NAME = 256;
 static const int MPI_SUCCESS = 0;
 static const int MPI_FAIL = 1;
