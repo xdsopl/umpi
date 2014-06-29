@@ -13,7 +13,10 @@ You should have received a copy of the CC0 Public Domain Dedication along with t
 #include <sys/uio.h>
 
 struct umpi_comm umpi_comm_world;
+struct umpi_comm umpi_comm_self;
+MPI_Comm MPI_COMM_NULL = nullptr;
 MPI_Comm MPI_COMM_WORLD = &umpi_comm_world;
+MPI_Comm MPI_COMM_SELF = &umpi_comm_self;
 
 struct umpi_datatype umpi_datatype_packed;
 struct umpi_datatype umpi_datatype_byte;
