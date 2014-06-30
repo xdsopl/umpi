@@ -69,9 +69,9 @@ int main(int argc, char **argv)
 
 	std::vector<std::string> command;
 	if (std::string(args[0], args[0].rfind("mpi")) == "mpicc")
-		command.push_back("gcc");
+		command.push_back("clang");
 	else
-		command.push_back("g++");
+		command.push_back("clang++");
 	std::vector<std::string> compile = { "-pthread", "-I" + prefix + "include" };
 	std::vector<std::string> link = { "-Wl,-rpath," + prefix + "lib", "-L" + prefix + "lib", "-lumpi" };
 
