@@ -12,6 +12,9 @@ You should have received a copy of the CC0 Public Domain Dedication along with t
 #include <sys/mman.h>
 #include <sys/uio.h>
 
+int umpi_in_place;
+void *const MPI_IN_PLACE = static_cast<void *const>(&umpi_in_place);
+
 struct umpi_comm umpi_comm_world;
 struct umpi_comm umpi_comm_self;
 MPI_Comm MPI_COMM_NULL = nullptr;
@@ -654,13 +657,18 @@ int MPI_Ibcast(void *buf, int count, MPI_Datatype datatype, int root, MPI_Comm c
 int collect::allgather_request(MPI_Request *request, const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, int recvcount, MPI_Datatype recvtype)
 {
 	if (joined_first()) {
-		umpi_copy(sendbuf, sendtype->iovec_, sendcount, 0, recvbuf, recvtype->iovec_, recvcount, umpi->rank);
+		if (sendbuf != MPI_IN_PLACE)
+			umpi_copy(sendbuf, sendtype->iovec_, sendcount, 0, recvbuf, recvtype->iovec_, recvcount, umpi->rank);
 		*request = create_request(box_, recvbuf, recvtype->iovec_, recvcount * umpi->size, recvcount, umpi->rank, UMPI_TAG_ALLGATHER, umpi->size);
 		mutex_.unlock();
 		return MPI_SUCCESS;
 	}
 
-	int ret = box_.front().write_to_owner(sendbuf, sendtype->iovec_, sendcount, umpi->rank);
+	int ret;
+	if (sendbuf == MPI_IN_PLACE)
+		ret = box_.front().write_to_owner(recvbuf, recvtype->iovec_, recvcount, umpi->rank, umpi->rank);
+	else
+		ret = box_.front().write_to_owner(sendbuf, sendtype->iovec_, sendcount, umpi->rank);
 	if (ret)
 		return ret;
 
@@ -694,24 +702,41 @@ int collect::allgather_request(MPI_Request *request, const void *sendbuf, int se
 
 int MPI_Iallgather(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, int recvcount, MPI_Datatype recvtype, MPI_Comm comm, MPI_Request *request)
 {
-	if (!umpi || (!sendbuf && sendcount) || !sendtype || (!recvbuf && recvcount) || !recvtype || sendcount * sendtype->len() != recvcount * recvtype->len() || comm != MPI_COMM_WORLD)
+	if (!umpi || (!sendbuf && sendcount) || (sendbuf != MPI_IN_PLACE && !sendtype) || (!recvbuf && recvcount) || !recvtype || (sendbuf != MPI_IN_PLACE && sendcount * sendtype->len() != recvcount * recvtype->len()) || comm != MPI_COMM_WORLD)
 		return MPI_FAIL;
 	return umpi->shared->get_current_slot()->allgather_request(request, sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype);
 }
 
 int collect::allreduce_request(MPI_Request *request, const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op)
 {
-	if (joined_first()) {
-		umpi_copy(sendbuf, datatype->iovec_, count, 0, recvbuf, datatype->iovec_, count, 0);
+	if (sendbuf == MPI_IN_PLACE) {
+		if (joined_first()) {
+			iovec_ = datatype->iovec_;
+			count_ = count;
+			umpi_copy(recvbuf, datatype->iovec_, count, 0, sendbuf_, iovec_, count_, 0);
+		} else if (!joined_last()) {
+			umpi_copy(sendbuf_, iovec_, count_, 0, recvbuf_, datatype->iovec_, count, 0);
+			(*op)(recvbuf, recvbuf_, &count, &datatype);
+			iovec_ = datatype->iovec_;
+			count_ = count;
+			umpi_copy(recvbuf_, iovec_, count_, 0, sendbuf_, iovec_, count_, 0);
+		} else {
+			umpi_copy(sendbuf_, iovec_, count_, 0, recvbuf_, datatype->iovec_, count, 0);
+			(*op)(recvbuf_, recvbuf, &count, &datatype);
+		}
 	} else {
-		int ret = box_.back().read_from_owner(recvbuf, datatype->iovec_, count, count);
-		if (ret)
-			return ret;
-		(*op)(sendbuf, recvbuf, &count, &datatype);
+		if (joined_first()) {
+			umpi_copy(sendbuf, datatype->iovec_, count, 0, recvbuf, datatype->iovec_, count, 0);
+		} else {
+			int ret = box_.back().read_from_owner(recvbuf, datatype->iovec_, count, count);
+			if (ret)
+				return ret;
+			(*op)(sendbuf, recvbuf, &count, &datatype);
+		}
 	}
 
 	if (!joined_last()) {
-		*request = create_request(box_, recvbuf, datatype->iovec_, count, count, umpi->rank, UMPI_TAG_ALLREDUCE, 2);
+		*request = create_request(box_, recvbuf, datatype->iovec_, count, count, umpi->rank, UMPI_TAG_ALLREDUCE, sendbuf == MPI_IN_PLACE ? 1 : 2);
 		mutex_.unlock();
 		return MPI_SUCCESS;
 	}
@@ -738,6 +763,8 @@ int collect::allreduce_request(MPI_Request *request, const void *sendbuf, void *
 int MPI_Iallreduce(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm, MPI_Request *request)
 {
 	if (!umpi || ((!sendbuf || !recvbuf) && count) || !datatype || !op || comm != MPI_COMM_WORLD)
+		return MPI_FAIL;
+	if (sendbuf == MPI_IN_PLACE && UMPI_MAX_IN_PLACE_LEN < count * datatype->stride())
 		return MPI_FAIL;
 	return umpi->shared->get_current_slot()->allreduce_request(request, sendbuf, recvbuf, count, datatype, op);
 }
@@ -785,13 +812,14 @@ int collect::root_gather_request(MPI_Request *request, void *recvbuf, int recvco
 
 int MPI_Igather(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, int recvcount, MPI_Datatype recvtype, int root, MPI_Comm comm, MPI_Request *request)
 {
-	if (!umpi || (!sendbuf && sendcount) || !sendtype || root < 0 || umpi->size <= root || comm != MPI_COMM_WORLD)
+	if (!umpi || (!sendbuf && sendcount) || (sendbuf != MPI_IN_PLACE && !sendtype) || root < 0 || umpi->size <= root || comm != MPI_COMM_WORLD)
 		return MPI_FAIL;
 	collect *slot = umpi->shared->get_current_slot();
 	if (umpi->rank == root) {
-		if ((!recvbuf && recvcount) || !recvtype || sendcount * sendtype->len() != recvcount * recvtype->len())
+		if ((!recvbuf && recvcount) || !recvtype || (sendbuf != MPI_IN_PLACE && sendcount * sendtype->len() != recvcount * recvtype->len()))
 			return MPI_FAIL;
-		umpi_copy(sendbuf, sendtype->iovec_, sendcount, 0, recvbuf, recvtype->iovec_, recvcount, umpi->rank);
+		if (sendbuf != MPI_IN_PLACE)
+			umpi_copy(sendbuf, sendtype->iovec_, sendcount, 0, recvbuf, recvtype->iovec_, recvcount, umpi->rank);
 		return slot->root_gather_request(request, recvbuf, recvcount, recvtype);
 	}
 	return slot->gather_request(request, sendbuf, sendcount, sendtype, root);
@@ -840,13 +868,14 @@ int collect::root_scatter_request(MPI_Request *request, const void *sendbuf, int
 
 int MPI_Iscatter(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, int recvcount, MPI_Datatype recvtype, int root, MPI_Comm comm, MPI_Request *request)
 {
-	if (!umpi || (!recvbuf && recvcount) || !recvtype || root < 0 || umpi->size <= root || comm != MPI_COMM_WORLD)
+	if (!umpi || (!recvbuf && recvcount) || (recvbuf != MPI_IN_PLACE && !recvtype) || root < 0 || umpi->size <= root || comm != MPI_COMM_WORLD)
 		return MPI_FAIL;
 	collect *slot = umpi->shared->get_current_slot();
 	if (umpi->rank == root) {
-		if ((!sendbuf && sendcount) || !sendtype || sendcount * sendtype->len() != recvcount * recvtype->len())
+		if ((!sendbuf && sendcount) || !sendtype || (recvbuf != MPI_IN_PLACE && sendcount * sendtype->len() != recvcount * recvtype->len()))
 			return MPI_FAIL;
-		umpi_copy(sendbuf, sendtype->iovec_, sendcount, umpi->rank, recvbuf, recvtype->iovec_, recvcount, 0);
+		if (recvbuf != MPI_IN_PLACE)
+			umpi_copy(sendbuf, sendtype->iovec_, sendcount, umpi->rank, recvbuf, recvtype->iovec_, recvcount, 0);
 		return slot->root_scatter_request(request, sendbuf, sendcount, sendtype);
 	}
 	return slot->scatter_request(request, recvbuf, recvcount, recvtype, root);

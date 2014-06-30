@@ -18,6 +18,7 @@ You should have received a copy of the CC0 Public Domain Dedication along with t
 #include <unistd.h>
 
 static const int UMPI_OUTSTANDING_REQUESTS_PER_PROCESS = 16;
+static const int UMPI_MAX_IN_PLACE_LEN = 64;
 
 enum umpi_tag : int {
 	UMPI_TAG_BCAST = -2,
@@ -188,7 +189,11 @@ private:
 	template <class... Args>
 	cookie *create_request(box_type &box, Args&&... args);
 	ipc::mutex mutex_;
+	uint8_t sendbuf_[UMPI_MAX_IN_PLACE_LEN];
+	uint8_t recvbuf_[UMPI_MAX_IN_PLACE_LEN];
 	box_type box_;
+	iovec_pointer iovec_;
+	int count_;
 	unsigned ticket_;
 	int joined_;
 };

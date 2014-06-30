@@ -61,6 +61,8 @@ typedef struct {
 static MPI_Status *const MPI_STATUS_IGNORE = 0;
 static MPI_Status *const MPI_STATUSES_IGNORE = 0;
 
+extern void *const MPI_IN_PLACE;
+
 typedef struct umpi_request *MPI_Request;
 typedef ptrdiff_t MPI_Aint;
 typedef void MPI_User_function(void *invec, void *inoutvec, int *len, MPI_Datatype *datatype);
