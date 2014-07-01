@@ -502,6 +502,7 @@ int cookie::write_to_owner(const void *buf, iovec_pointer iovec, int count, int 
 	size_t total_bytes = count * iovec->len();
 	if (size_ * iovec_->len() < seek * count_ * iovec_->len() + total_bytes)
 		return owner_->notify_done(this, MPI_FAIL);
+	count_ = count_ * iovec_->len() < total_bytes ? count_ : total_bytes / iovec_->len();
 #if 0
 	if (iovec->contiguous() && iovec_->contiguous()) {
 		struct iovec local = { static_cast<uint8_t *>(const_cast<void *>(buf)) + skip * total_bytes, total_bytes };
@@ -973,7 +974,7 @@ void cookie::leave()
 	owner_->finalize(this);
 }
 
-int process::wait(cookie_pointer cookie)
+void process::wait(cookie_pointer cookie)
 {
 	mutex_.lock();
 	waiting_ = cookie;
@@ -983,7 +984,6 @@ int process::wait(cookie_pointer cookie)
 	waiting_ = nullptr;
 	waiting_for_ = not_waiting;
 	mutex_.unlock();
-	return cookie->err_;
 }
 
 int process::wait_any(int count, umpi_request **cookies)
@@ -1006,6 +1006,16 @@ int process::wait_any(int count, umpi_request **cookies)
 bool cookie::owner() const
 {
 	return umpi->self == &(*owner_);
+}
+
+static int get_status(MPI_Status *status, struct cookie *cookie)
+{
+	if (status) {
+		status->MPI_SOURCE = cookie->src_;
+		status->MPI_TAG = cookie->tag_;
+		status->len = cookie->count_ * cookie->iovec_->len();
+	}
+	return cookie->err_;
 }
 
 int MPI_Waitany(int count, MPI_Request *array_of_requests, int *index, MPI_Status *status)
@@ -1034,20 +1044,15 @@ int MPI_Waitany(int count, MPI_Request *array_of_requests, int *index, MPI_Statu
 end:
 	struct cookie *cookie = static_cast<struct cookie *>(array_of_requests[*index]);
 	array_of_requests[*index] = nullptr;
-	int err = cookie->err_;
-	if (status) {
-		status->MPI_SOURCE = cookie->src_;
-		status->MPI_TAG = cookie->tag_;
-	}
+	int err = get_status(status, cookie);
 	cookie->leave();
 	return err;
 }
 
-int cookie::wait()
+void cookie::wait()
 {
 	if (umpi->self == &(*owner_))
-		return umpi->self->wait(this);
-	return err_;
+		umpi->self->wait(this);
 }
 
 int MPI_Wait(MPI_Request *request, MPI_Status *status)
@@ -1056,11 +1061,8 @@ int MPI_Wait(MPI_Request *request, MPI_Status *status)
 		return MPI_FAIL;
 	struct cookie *cookie = static_cast<struct cookie *>(*request);
 	*request = nullptr;
-	int err = cookie->wait();
-	if (status) {
-		status->MPI_SOURCE = cookie->src_;
-		status->MPI_TAG = cookie->tag_;
-	}
+	cookie->wait();
+	int err = get_status(status, cookie);
 	cookie->leave();
 	return err;
 }
@@ -1086,10 +1088,7 @@ int MPI_Probe(int source, int tag, MPI_Comm comm, MPI_Status *status)
 	if (!umpi || source < MPI_ANY_SOURCE || umpi->size <= source || tag < MPI_ANY_TAG || comm != MPI_COMM_WORLD || !status)
 		return MPI_FAIL;
 	struct cookie *cookie = umpi->self->wait_any(source, tag);
-	status->MPI_SOURCE = cookie->src_;
-	status->MPI_TAG = cookie->tag_;
-	status->len = cookie->size_ * cookie->iovec_->len();
-	return MPI_SUCCESS;
+	return get_status(status, cookie);
 }
 
 int MPI_Test(MPI_Request *request, int *flag, MPI_Status *status)
@@ -1103,11 +1102,7 @@ int MPI_Test(MPI_Request *request, int *flag, MPI_Status *status)
 	}
 	*flag = 1;
 	*request = nullptr;
-	int err = cookie->err_;
-	if (status) {
-		status->MPI_SOURCE = cookie->src_;
-		status->MPI_TAG = cookie->tag_;
-	}
+	int err = get_status(status, cookie);
 	cookie->leave();
 	return err;
 }

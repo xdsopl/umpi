@@ -118,7 +118,7 @@ struct cookie : umpi_request {
 	}
 	bool recv_match(int source, int tag);
 	bool send_match(int source, int tag);
-	int wait();
+	void wait();
 	int write_to_owner(const void *buf, iovec_pointer iovec, int count, int seek = 0, int skip = 0);
 	int read_from_owner(void *buf, iovec_pointer iovec, int size, int count = 0, int seek = 0, int skip = 0);
 	// usually done within locked boxes, so no locking needed
@@ -155,7 +155,7 @@ class process {
 	};
 public:
 	process() : pid_(getpid()), waiting_(nullptr), waiting_for_(not_waiting) {}
-	int wait(cookie_pointer cookie);
+	void wait(cookie_pointer cookie);
 	int wait_any(int count, umpi_request **cookies);
 	cookie *wait_any(int source, int tag);
 	void finalize(struct cookie *cookie);
