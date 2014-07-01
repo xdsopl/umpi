@@ -448,8 +448,8 @@ int process::notify_done(cookie_pointer cookie, int err)
 	mutex_.lock();
 	cookie->err_ = cookie->err_ ? cookie->err_ : err;
 	cookie->busy_--;
-	if (!cookie->busy_ && waiting_ == cookie)
-		done_.notify_one();
+	if (!cookie->busy_ && waiting_for_ == waiting_for_cookie && waiting_ == cookie)
+		cond_.notify_one();
 	mutex_.unlock();
 	return err;
 }
@@ -943,8 +943,8 @@ int process::send_request(MPI_Request *request, const void *buf, int count, MPI_
 		}
 	}
 	*request = create_request(inbox_, const_cast<void *>(buf), datatype->iovec_, count, count, umpi->rank, tag);
-	if (waiting_any_)
-		incoming_.notify_one();
+	if (waiting_for_ == waiting_for_incoming)
+		cond_.notify_one();
 	mutex_.unlock();
 	return MPI_SUCCESS;
 }
@@ -977,11 +977,70 @@ int process::wait(cookie_pointer cookie)
 {
 	mutex_.lock();
 	waiting_ = cookie;
+	waiting_for_ = waiting_for_cookie;
 	while (cookie->busy_)
-		done_.wait(mutex_);
+		cond_.wait(mutex_);
 	waiting_ = nullptr;
+	waiting_for_ = not_waiting;
 	mutex_.unlock();
 	return cookie->err_;
+}
+
+int process::wait_any(int count, umpi_request **cookies)
+{
+	mutex_.lock();
+	waiting_for_ = waiting_for_any_cookie;
+	while (true) {
+		for (int i = 0; i < count; i++) {
+			struct cookie *cookie = static_cast<struct cookie *>(cookies[i]);
+			if (!cookie || cookie->busy_)
+				continue;
+			waiting_for_ = not_waiting;
+			mutex_.unlock();
+			return i;
+		}
+		cond_.wait(mutex_);
+	}
+}
+
+bool cookie::owner() const
+{
+	return umpi->self == &(*owner_);
+}
+
+int MPI_Waitany(int count, MPI_Request *array_of_requests, int *index, MPI_Status *status)
+{
+	if (!umpi || (count && !array_of_requests) || !index)
+		return MPI_FAIL;
+
+	int begin = count;
+	int end = 0;
+	for (*index = 0; *index < count; (*index)++) {
+		struct cookie *cookie = static_cast<struct cookie *>(array_of_requests[*index]);
+		if (!cookie)
+			continue;
+		if (!cookie->owner())
+			goto end;
+		begin = std::min(begin, *index);
+		end = *index + 1;
+	}
+
+	*index = MPI_UNDEFINED;
+	if (!end)
+		return MPI_SUCCESS;
+
+	*index = umpi->self->wait_any(end - begin, array_of_requests + begin);
+
+end:
+	struct cookie *cookie = static_cast<struct cookie *>(array_of_requests[*index]);
+	array_of_requests[*index] = nullptr;
+	int err = cookie->err_;
+	if (status) {
+		status->MPI_SOURCE = cookie->src_;
+		status->MPI_TAG = cookie->tag_;
+	}
+	cookie->leave();
+	return err;
 }
 
 int cookie::wait()
@@ -1009,15 +1068,15 @@ int MPI_Wait(MPI_Request *request, MPI_Status *status)
 cookie *process::wait_any(int source, int tag)
 {
 	mutex_.lock();
-	waiting_any_ = true;
+	waiting_for_ = waiting_for_incoming;
 	while (inbox_.empty())
-		incoming_.wait(mutex_);
+		cond_.wait(mutex_);
 	box_type::iterator cookie;
 	for (cookie = inbox_.begin(); !cookie->recv_match(source, tag); cookie++) {
 		while (&(*cookie) == &inbox_.back())
-			incoming_.wait(mutex_);
+			cond_.wait(mutex_);
 	}
-	waiting_any_ = false;
+	waiting_for_ = not_waiting;
 	mutex_.unlock();
 	return &(*cookie);
 }

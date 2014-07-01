@@ -124,6 +124,7 @@ struct cookie : umpi_request {
 	// usually done within locked boxes, so no locking needed
 	void join() { used_++; }
 	void leave();
+	bool owner() const;
 	void *operator new(size_t size) = delete;
 	void operator delete(void *ptr, size_t size) = delete;
 	process_pointer owner_;
@@ -146,9 +147,16 @@ typedef pool_allocator<void_pointer, void_pool, &pool_addr> void_allocator;
 typedef std::list<cookie, typename void_allocator::template rebind<cookie>::other> box_type;
 
 class process {
+	enum waiting_for_type {
+		not_waiting,
+		waiting_for_incoming,
+		waiting_for_any_cookie,
+		waiting_for_cookie
+	};
 public:
-	process() : pid_(getpid()), waiting_(nullptr), waiting_any_(false) {}
+	process() : pid_(getpid()), waiting_(nullptr), waiting_for_(not_waiting) {}
 	int wait(cookie_pointer cookie);
+	int wait_any(int count, umpi_request **cookies);
 	cookie *wait_any(int source, int tag);
 	void finalize(struct cookie *cookie);
 	int send_request(MPI_Request *request, const void *buf, int count, MPI_Datatype datatype, int tag);
@@ -162,13 +170,13 @@ private:
 	template <class... Args>
 	cookie *create_request(box_type &box, Args&&... args);
 	ipc::mutex mutex_;
-	ipc::condition_variable done_, incoming_;
+	ipc::condition_variable cond_;
 	box_type free_;
 	box_type inbox_;
 	box_type outbox_;
 	box_type pending_;
 	cookie_pointer waiting_;
-	bool waiting_any_;
+	waiting_for_type waiting_for_;
 };
 
 class collect {

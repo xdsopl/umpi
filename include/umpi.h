@@ -26,6 +26,7 @@ static const int MPI_ERR_ARG = 4;
 static const int MPI_ERR_NO_MEM = 5;
 static const int MPI_ANY_SOURCE = -1;
 static const int MPI_ANY_TAG = -1;
+static const int MPI_UNDEFINED = -1;
 
 typedef struct umpi_comm *MPI_Comm;
 extern MPI_Comm MPI_COMM_NULL;
