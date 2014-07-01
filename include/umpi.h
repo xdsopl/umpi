@@ -115,6 +115,7 @@ int MPI_Type_create_struct(int count, const int *array_of_blocklengths, const MP
 int MPI_Type_free(MPI_Datatype *datatype);
 int MPI_Unpack(const void *inbuf, int insize, int *position, void *outbuf, int outcount, MPI_Datatype datatype, MPI_Comm comm);
 int MPI_Waitall(int count, MPI_Request *array_of_requests, MPI_Status *array_of_statuses);
+int MPI_Waitany(int count, MPI_Request *array_of_requests, int *index, MPI_Status *status);
 int MPI_Wait(MPI_Request *request, MPI_Status *status);
 
 #ifdef __cplusplus
