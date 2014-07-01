@@ -10,3 +10,14 @@ Finally, a pool allocator using based_ptr and the nice libc++ allows us to use s
 Processes communicate entirely over shared memory and no sockets get opened.
 This allows us to start thousands of processes on a single shared memory Computer.
 
+If you would like to help develop umpi and send me Patches:
+
+Please try to follow the Linux Coding Style:
+/usr/src/linux/Documentation/CodingStyle
+
+If you do not like the default vim settings and have your own defaults for tabs, please add this to each file you would like to edit and commit it locally:
+// vim: set noexpandtab tabstop=8 shiftwidth=8 softtabstop=0:
+
+you should then be able to switch to the saner defaults before editing by issuing this in vim:
+:set modeline
+
