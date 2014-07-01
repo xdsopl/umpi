@@ -21,6 +21,9 @@ static const int MPI_MAX_PROCESSOR_NAME = 256;
 static const int MPI_SUCCESS = 0;
 static const int MPI_FAIL = 1;
 static const int MPI_ERR_IN_STATUS = 2;
+static const int MPI_ERR_COMM = 3;
+static const int MPI_ERR_ARG = 4;
+static const int MPI_ERR_NO_MEM = 5;
 static const int MPI_ANY_SOURCE = -1;
 static const int MPI_ANY_TAG = -1;
 
@@ -73,6 +76,8 @@ int MPI_Allgather(const void *sendbuf, int sendcount, MPI_Datatype sendtype, voi
 int MPI_Allreduce(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm);
 int MPI_Barrier(MPI_Comm comm);
 int MPI_Bcast(void *buf, int count, MPI_Datatype datatype, int root, MPI_Comm comm);
+int MPI_Comm_dup(MPI_Comm comm, MPI_Comm *newcomm);
+int MPI_Comm_free(MPI_Comm *comm);
 int MPI_Comm_rank(MPI_Comm comm, int *rank);
 int MPI_Comm_size(MPI_Comm comm, int *size);
 int MPI_Finalize();

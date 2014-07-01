@@ -377,6 +377,26 @@ int MPI_Comm_size(MPI_Comm comm, int *size)
 	return MPI_SUCCESS;
 }
 
+int MPI_Comm_dup(MPI_Comm comm, MPI_Comm *newcomm)
+{
+	if (!comm)
+		return MPI_ERR_COMM;
+	if (!newcomm)
+		return MPI_ERR_ARG;
+	*newcomm = new umpi_comm(*comm);
+	return *newcomm ? MPI_SUCCESS : MPI_ERR_NO_MEM;
+}
+
+int MPI_Comm_free(MPI_Comm *comm)
+{
+	if (!comm)
+		return MPI_ERR_ARG;
+	if (!*comm || *comm == MPI_COMM_SELF || *comm == MPI_COMM_WORLD)
+		return MPI_ERR_COMM;
+	delete *comm;
+	return MPI_SUCCESS;
+}
+
 template <class... Args>
 cookie *process::create_request(box_type &box, Args&&... args)
 {
