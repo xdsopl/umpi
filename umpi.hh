@@ -18,6 +18,7 @@ You should have received a copy of the CC0 Public Domain Dedication along with t
 #include <unistd.h>
 
 static int UMPI_OUTSTANDING_REQUESTS_PER_PROCESS = 0;
+static size_t UMPI_POOL_RESERVE_LEN = 1024 * 1024;
 static const int UMPI_OUTSTANDING_COLLECTIVE_OPERATIONS = 16;
 static const int UMPI_MAX_IN_PLACE_LEN = 64;
 static const int UMPI_TAG_CC = -2;
@@ -254,7 +255,7 @@ static size_t calc_mmap_len(int size)
 	size_t page_size = sysconf(_SC_PAGE_SIZE);
 	size_t header_len = sizeof(shared) + sizeof(process) * size;
 	size_t cookie_len = sizeof(cookie) + 2 * sizeof(cookie_pointer);
-	size_t pool_len = cookie_len * UMPI_OUTSTANDING_REQUESTS_PER_PROCESS * size;
+	size_t pool_len = UMPI_POOL_RESERVE_LEN + cookie_len * UMPI_OUTSTANDING_REQUESTS_PER_PROCESS * size;
 	return (header_len + pool_len + (page_size - 1)) & ~(page_size - 1);
 }
 
