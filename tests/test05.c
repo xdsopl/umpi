@@ -45,7 +45,7 @@ int main(int argc, char **argv)
 			int counter = 0;
 			int flag = 0;
 			do {
-				if (MPI_Test(&request, &flag, 0)) {
+				if (MPI_Test(&request, &flag, MPI_STATUS_IGNORE)) {
 					fprintf(stderr, "MPI_Wait failed\n");
 					MPI_Abort(MPI_COMM_WORLD, 1);
 				}

@@ -39,7 +39,7 @@ int main(int argc, char **argv)
 				}
 			}
 		}
-		if (MPI_Waitall(count, reqs, 0)) {
+		if (MPI_Waitall(count, reqs, MPI_STATUS_IGNORE)) {
 			fprintf(stderr, "MPI_Waitall failed\n");
 			MPI_Abort(MPI_COMM_WORLD, 1);
 		}

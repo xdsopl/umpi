@@ -59,7 +59,7 @@ int main(int argc, char **argv)
 	}
 	if (rank == 1) {
 		char recvbuf[sum];
-		if (MPI_Recv(recvbuf, sum, MPI_PACKED, 0, 0, MPI_COMM_WORLD, 0)) {
+		if (MPI_Recv(recvbuf, sum, MPI_PACKED, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE)) {
 			fprintf(stderr, "MPI_Recv failed.\n");
 			MPI_Abort(MPI_COMM_WORLD, 1);
 		}

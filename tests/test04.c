@@ -34,7 +34,7 @@ int main(int argc, char **argv)
 				MPI_Abort(MPI_COMM_WORLD, 1);
 			}
 		}
-		if (MPI_Waitall(10, request, 0)) {
+		if (MPI_Waitall(10, request, MPI_STATUS_IGNORE)) {
 			fprintf(stderr, "MPI_Waitall failed\n");
 			MPI_Abort(MPI_COMM_WORLD, 1);
 		}
@@ -42,7 +42,7 @@ int main(int argc, char **argv)
 	}
 	if (rank == 1) {
 		for (int i = 0; i < 10; i++) {
-			if (MPI_Recv(msg, sizeof(msg), MPI_CHAR, 0, 0, MPI_COMM_WORLD, 0)) {
+			if (MPI_Recv(msg, sizeof(msg), MPI_CHAR, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE)) {
 				fprintf(stderr, "MPI_Recv failed\n");
 				MPI_Abort(MPI_COMM_WORLD, 1);
 			}
