@@ -1194,18 +1194,20 @@ int MPI_Get_count(const MPI_Status *status, MPI_Datatype datatype, int *count)
 
 int MPI_Waitall(int count, MPI_Request *array_of_requests, MPI_Status *array_of_statuses)
 {
-	int error = MPI_SUCCESS;
 	if (array_of_statuses) {
-		for (int i = 0; i < count; i++)
+		for (int i = 0; i < count; i++) {
 			array_of_statuses[i].MPI_ERROR = MPI_Wait(array_of_requests + i, array_of_statuses + i);
-		for (int i = 0; !error && i < count; i++)
 			if (array_of_statuses[i].MPI_ERROR)
-				error = MPI_ERR_IN_STATUS;
+				return MPI_ERR_IN_STATUS;
+		}
 	} else {
-		for (int i = 0; !error && i < count; i++)
-			error = MPI_Wait(array_of_requests + i, nullptr);
+		for (int i = 0; i < count; i++) {
+			int error = MPI_Wait(array_of_requests + i, nullptr);
+			if (error)
+				return error;
+		}
 	}
-	return error;
+	return MPI_SUCCESS;
 }
 
 int MPI_Pack(const void *inbuf, int incount, MPI_Datatype datatype, void *outbuf, int outsize, int *position, MPI_Comm comm)
