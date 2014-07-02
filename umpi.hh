@@ -19,14 +19,7 @@ You should have received a copy of the CC0 Public Domain Dedication along with t
 
 static const int UMPI_OUTSTANDING_REQUESTS_PER_PROCESS = 16;
 static const int UMPI_MAX_IN_PLACE_LEN = 64;
-
-enum umpi_tag : int {
-	UMPI_TAG_BCAST = -2,
-	UMPI_TAG_GATHER = -3,
-	UMPI_TAG_SCATTER = -4,
-	UMPI_TAG_ALLGATHER = -5,
-	UMPI_TAG_ALLREDUCE = -6
-};
+static const int UMPI_TAG_CC = -2;
 
 enum umpi_id : ptrdiff_t {
 	UMPI_ID_CONTIGUOUS,

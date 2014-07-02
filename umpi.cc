@@ -627,7 +627,7 @@ bool collect::joined_first()
 int collect::bcast_request(MPI_Request *request, void *buf, int count, MPI_Datatype datatype, int root)
 {
 	auto cookie = box_.begin();
-	if (cookie != box_.end() && cookie->src_ == root && cookie->tag_ == UMPI_TAG_BCAST) {
+	if (cookie != box_.end() && cookie->src_ == root) {
 		cookie->join();
 		if (joined_last())
 			cookie->owner_->move_to_pending(box_, cookie);
@@ -635,7 +635,7 @@ int collect::bcast_request(MPI_Request *request, void *buf, int count, MPI_Datat
 		*request = &(*cookie);
 		return cookie->read_from_owner(buf, datatype->iovec_, count, count);
 	}
-	*request = create_request(box_, buf, datatype->iovec_, count, count, umpi->rank, UMPI_TAG_BCAST);
+	*request = create_request(box_, buf, datatype->iovec_, count, count, umpi->rank, UMPI_TAG_CC);
 
 	mutex_.unlock();
 	return MPI_SUCCESS;
@@ -651,7 +651,7 @@ int collect::root_bcast_request(MPI_Request *request, const void *buf, int count
 		borrow.join();
 		*request = &borrow;
 	} else {
-		*request = create_request(box_, const_cast<void *>(buf), datatype->iovec_, count, count, umpi->rank, UMPI_TAG_BCAST, umpi->size - joined_);
+		*request = create_request(box_, const_cast<void *>(buf), datatype->iovec_, count, count, umpi->rank, UMPI_TAG_CC, umpi->size - joined_);
 	}
 	mutex_.unlock();
 
@@ -680,7 +680,7 @@ int collect::allgather_request(MPI_Request *request, const void *sendbuf, int se
 	if (joined_first()) {
 		if (sendbuf != MPI_IN_PLACE)
 			umpi_copy(sendbuf, sendtype->iovec_, sendcount, 0, recvbuf, recvtype->iovec_, recvcount, umpi->rank);
-		*request = create_request(box_, recvbuf, recvtype->iovec_, recvcount * umpi->size, recvcount, umpi->rank, UMPI_TAG_ALLGATHER, umpi->size);
+		*request = create_request(box_, recvbuf, recvtype->iovec_, recvcount * umpi->size, recvcount, umpi->rank, UMPI_TAG_CC, umpi->size);
 		mutex_.unlock();
 		return MPI_SUCCESS;
 	}
@@ -694,7 +694,7 @@ int collect::allgather_request(MPI_Request *request, const void *sendbuf, int se
 		return ret;
 
 	if (!joined_last()) {
-		*request = create_request(box_, recvbuf, recvtype->iovec_, recvcount * umpi->size, recvcount, umpi->rank, UMPI_TAG_ALLGATHER);
+		*request = create_request(box_, recvbuf, recvtype->iovec_, recvcount * umpi->size, recvcount, umpi->rank, UMPI_TAG_CC);
 		mutex_.unlock();
 		return MPI_SUCCESS;
 	}
@@ -757,7 +757,7 @@ int collect::allreduce_request(MPI_Request *request, const void *sendbuf, void *
 	}
 
 	if (!joined_last()) {
-		*request = create_request(box_, recvbuf, datatype->iovec_, count, count, umpi->rank, UMPI_TAG_ALLREDUCE, sendbuf == MPI_IN_PLACE ? 1 : 2);
+		*request = create_request(box_, recvbuf, datatype->iovec_, count, count, umpi->rank, UMPI_TAG_CC, sendbuf == MPI_IN_PLACE ? 1 : 2);
 		mutex_.unlock();
 		return MPI_SUCCESS;
 	}
@@ -793,7 +793,7 @@ int MPI_Iallreduce(const void *sendbuf, void *recvbuf, int count, MPI_Datatype d
 int collect::gather_request(MPI_Request *request, const void *sendbuf, int sendcount, MPI_Datatype sendtype, int root)
 {
 	auto cookie = box_.begin();
-	if (cookie != box_.end() && cookie->src_ == root && cookie->tag_ == UMPI_TAG_GATHER) {
+	if (cookie != box_.end() && cookie->src_ == root) {
 		cookie->join();
 		if (joined_last())
 			cookie->owner_->move_to_pending(box_, cookie);
@@ -801,7 +801,7 @@ int collect::gather_request(MPI_Request *request, const void *sendbuf, int sendc
 		*request = &(*cookie);
 		return cookie->write_to_owner(sendbuf, sendtype->iovec_, sendcount, umpi->rank);
 	}
-	*request = create_request(box_, const_cast<void *>(sendbuf), sendtype->iovec_, sendcount, sendcount, umpi->rank, UMPI_TAG_GATHER);
+	*request = create_request(box_, const_cast<void *>(sendbuf), sendtype->iovec_, sendcount, sendcount, umpi->rank, UMPI_TAG_CC);
 
 	mutex_.unlock();
 	return MPI_SUCCESS;
@@ -817,7 +817,7 @@ int collect::root_gather_request(MPI_Request *request, void *recvbuf, int recvco
 		borrow.join();
 		*request = &borrow;
 	} else {
-		*request = create_request(box_, recvbuf, recvtype->iovec_, recvcount * umpi->size, recvcount, umpi->rank, UMPI_TAG_GATHER, umpi->size - joined_);
+		*request = create_request(box_, recvbuf, recvtype->iovec_, recvcount * umpi->size, recvcount, umpi->rank, UMPI_TAG_CC, umpi->size - joined_);
 	}
 	mutex_.unlock();
 
@@ -849,7 +849,7 @@ int MPI_Igather(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void 
 int collect::scatter_request(MPI_Request *request, void *recvbuf, int recvcount, MPI_Datatype recvtype, int root)
 {
 	auto cookie = box_.begin();
-	if (cookie != box_.end() && cookie->src_ == root && cookie->tag_ == UMPI_TAG_SCATTER) {
+	if (cookie != box_.end() && cookie->src_ == root) {
 		cookie->join();
 		if (joined_last())
 			cookie->owner_->move_to_pending(box_, cookie);
@@ -857,7 +857,7 @@ int collect::scatter_request(MPI_Request *request, void *recvbuf, int recvcount,
 		*request = &(*cookie);
 		return cookie->read_from_owner(recvbuf, recvtype->iovec_, recvcount, recvcount, 0, umpi->rank);
 	}
-	*request = create_request(box_, recvbuf, recvtype->iovec_, recvcount, recvcount, umpi->rank, UMPI_TAG_SCATTER);
+	*request = create_request(box_, recvbuf, recvtype->iovec_, recvcount, recvcount, umpi->rank, UMPI_TAG_CC);
 
 	mutex_.unlock();
 	return MPI_SUCCESS;
@@ -873,7 +873,7 @@ int collect::root_scatter_request(MPI_Request *request, const void *sendbuf, int
 		borrow.join();
 		*request = &borrow;
 	} else {
-		*request = create_request(box_, const_cast<void *>(sendbuf), sendtype->iovec_, sendcount * umpi->size, sendcount, umpi->rank, UMPI_TAG_SCATTER, umpi->size - joined_);
+		*request = create_request(box_, const_cast<void *>(sendbuf), sendtype->iovec_, sendcount * umpi->size, sendcount, umpi->rank, UMPI_TAG_CC, umpi->size - joined_);
 	}
 	mutex_.unlock();
 
