@@ -1018,6 +1018,17 @@ static int get_status(MPI_Status *status, struct cookie *cookie)
 	return cookie->err_;
 }
 
+static int empty_status(MPI_Status *status)
+{
+	if (status) {
+		status->MPI_SOURCE = MPI_ANY_SOURCE;
+		status->MPI_TAG = MPI_ANY_TAG;
+		status->MPI_ERROR = MPI_SUCCESS;
+		status->len = 0;
+	}
+	return MPI_SUCCESS;
+}
+
 int MPI_Waitany(int count, MPI_Request *array_of_requests, int *index, MPI_Status *status)
 {
 	if (!umpi || (count && !array_of_requests) || !index)
@@ -1037,7 +1048,7 @@ int MPI_Waitany(int count, MPI_Request *array_of_requests, int *index, MPI_Statu
 
 	*index = MPI_UNDEFINED;
 	if (!end)
-		return MPI_SUCCESS;
+		return empty_status(status);
 
 	*index = umpi->self->wait_any(end - begin, array_of_requests + begin);
 
@@ -1059,15 +1070,8 @@ int MPI_Wait(MPI_Request *request, MPI_Status *status)
 {
 	if (!umpi)
 		return MPI_FAIL;
-	if (!request || !*request) {
-		if (status) {
-			status->MPI_SOURCE = MPI_ANY_SOURCE;
-			status->MPI_TAG = MPI_ANY_TAG;
-			status->MPI_ERROR = MPI_SUCCESS;
-			status->len = 0;
-		}
-		return MPI_SUCCESS;
-	}
+	if (!request || !*request)
+		return empty_status(status);
 	struct cookie *cookie = static_cast<struct cookie *>(*request);
 	*request = nullptr;
 	cookie->wait();
