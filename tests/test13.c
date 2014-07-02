@@ -20,10 +20,6 @@ int main(int argc, char **argv)
 	int rank, size;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
-	if (size < 2) {
-		fprintf(stderr, "cant play this game alone.\n");
-		return 1;
-	}
 	srand(rank + MPI_Wtime());
 	int sendbuf[2] = { rand() % 1000, rand() % 1000 };
 	fprintf(stderr, "[ %d ] my numbers are: %3d %3d\n", rank, sendbuf[0], sendbuf[1]);
