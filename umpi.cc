@@ -598,7 +598,7 @@ void process::move_to_pending(box_type &box, box_type::iterator cookie)
 
 collect *shared::get_current_slot()
 {
-	int turn = umpi->ticket % UMPI_OUTSTANDING_REQUESTS_PER_PROCESS;
+	int turn = umpi->ticket % UMPI_OUTSTANDING_COLLECTIVE_OPERATIONS;
 	collect *slot = slots_ + turn;
 	slot->mutex_.lock();
 	if (slot->box_.empty()) {

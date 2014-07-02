@@ -17,7 +17,8 @@ You should have received a copy of the CC0 Public Domain Dedication along with t
 #include <forward_list>
 #include <unistd.h>
 
-static const int UMPI_OUTSTANDING_REQUESTS_PER_PROCESS = 16;
+static int UMPI_OUTSTANDING_REQUESTS_PER_PROCESS = 0;
+static const int UMPI_OUTSTANDING_COLLECTIVE_OPERATIONS = 16;
 static const int UMPI_MAX_IN_PLACE_LEN = 64;
 static const int UMPI_TAG_CC = -2;
 
@@ -229,7 +230,7 @@ struct shared {
 private:
 	ipc::mutex mutex_;
 	void_pool pool_state_;
-	collect slots_[UMPI_OUTSTANDING_REQUESTS_PER_PROCESS];
+	collect slots_[UMPI_OUTSTANDING_COLLECTIVE_OPERATIONS];
 	std::forward_list<iovec_pointer, void_allocator::rebind<iovec_pointer>::other> commited_;
 	umpi_iovec iovec_packed_;
 	umpi_iovec iovec_byte_;
@@ -248,10 +249,12 @@ private:
 
 static size_t calc_mmap_len(int size)
 {
+	if (!UMPI_OUTSTANDING_REQUESTS_PER_PROCESS)
+		UMPI_OUTSTANDING_REQUESTS_PER_PROCESS = 2 * size;
 	size_t page_size = sysconf(_SC_PAGE_SIZE);
 	size_t header_len = sizeof(shared) + sizeof(process) * size;
 	size_t cookie_len = sizeof(cookie) + 2 * sizeof(cookie_pointer);
-	size_t pool_len = cookie_len * std::max(UMPI_OUTSTANDING_REQUESTS_PER_PROCESS, size) * size;
+	size_t pool_len = cookie_len * UMPI_OUTSTANDING_REQUESTS_PER_PROCESS * size;
 	return (header_len + pool_len + (page_size - 1)) & ~(page_size - 1);
 }
 
