@@ -1057,10 +1057,17 @@ void cookie::wait()
 
 int MPI_Wait(MPI_Request *request, MPI_Status *status)
 {
-	if (!umpi || !request)
+	if (!umpi)
 		return MPI_FAIL;
-	if (!*request)
+	if (!request || !*request) {
+		if (status) {
+			status->MPI_SOURCE = MPI_ANY_SOURCE;
+			status->MPI_TAG = MPI_ANY_TAG;
+			status->MPI_ERROR = MPI_SUCCESS;
+			status->len = 0;
+		}
 		return MPI_SUCCESS;
+	}
 	struct cookie *cookie = static_cast<struct cookie *>(*request);
 	*request = nullptr;
 	cookie->wait();
