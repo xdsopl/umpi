@@ -857,6 +857,58 @@ int MPI_Iexscan(const void *sendbuf, void *recvbuf, int count, MPI_Datatype data
 	return umpi->shared->get_current_slot()->exscan_request(request, sendbuf, recvbuf, count, datatype, op);
 }
 
+int collect::scan_request(MPI_Request *request, const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op)
+{
+	// cant do better at the moment .. concept sucks.
+	if (UMPI_MAX_IN_PLACE_LEN < count * datatype->stride())
+		return MPI_FAIL;
+
+	if (sendbuf != MPI_IN_PLACE)
+		umpi_copy(sendbuf, datatype->iovec_, count, 0, recvbuf, datatype->iovec_, count, 0);
+
+	*request = create_request(box_, recvbuf, datatype->iovec_, count, count, umpi->rank, UMPI_TAG_CC, umpi->rank ? 2 : 1);
+
+	if (!joined_last()) {
+		mutex_.unlock();
+		return MPI_SUCCESS;
+	}
+
+	box_type todo;
+	todo.splice(todo.begin(), box_);
+
+	mutex_.unlock();
+
+	todo.sort([](struct cookie &left, struct cookie &right){ return left.src_ < right.src_; });
+
+	auto first = todo.begin();
+	first->owner_->move_to_pending(todo, first);
+	int ret = first->read_from_owner(sendbuf_, datatype->iovec_, count);
+	if (ret)
+		return ret;
+
+	for (auto cookie = todo.begin(); cookie != todo.end();) {
+		auto pending = cookie++;
+		pending->owner_->move_to_pending(todo, pending);
+		ret = pending->read_from_owner(recvbuf_, datatype->iovec_, count);
+		if (ret)
+			return ret;
+		(*op)(recvbuf_, sendbuf_, &count, &datatype);
+		ret = pending->write_to_owner(sendbuf_, datatype->iovec_, count);
+		if (ret)
+			return ret;
+	}
+	return MPI_SUCCESS;
+}
+
+int MPI_Iscan(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm, MPI_Request *request)
+{
+	if (!umpi || ((!sendbuf || !recvbuf) && count) || !datatype || !op || comm != MPI_COMM_WORLD)
+		return MPI_FAIL;
+	if (sendbuf == MPI_IN_PLACE && UMPI_MAX_IN_PLACE_LEN < count * datatype->stride())
+		return MPI_FAIL;
+	return umpi->shared->get_current_slot()->scan_request(request, sendbuf, recvbuf, count, datatype, op);
+}
+
 int collect::gather_request(MPI_Request *request, const void *sendbuf, int sendcount, MPI_Datatype sendtype, int root)
 {
 	auto cookie = box_.begin();
@@ -1248,6 +1300,15 @@ int MPI_Exscan(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datat
 {
 	MPI_Request request;
 	int ret = MPI_Iexscan(sendbuf, recvbuf, count, datatype, op, comm, &request);
+	if (ret)
+		return ret;
+	return MPI_Wait(&request, nullptr);
+}
+
+int MPI_Scan(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm)
+{
+	MPI_Request request;
+	int ret = MPI_Iscan(sendbuf, recvbuf, count, datatype, op, comm, &request);
 	if (ret)
 		return ret;
 	return MPI_Wait(&request, nullptr);

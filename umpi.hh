@@ -185,6 +185,7 @@ public:
 	int allgather_request(MPI_Request *request, const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, int recvcount, MPI_Datatype recvtype);
 	int allreduce_request(MPI_Request *request, const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op);
 	int exscan_request(MPI_Request *request, const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op);
+	int scan_request(MPI_Request *request, const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op);
 	int gather_request(MPI_Request *request, const void *sendbuf, int sendcount, MPI_Datatype sendtype, int root);
 	int root_gather_request(MPI_Request *request, void *recvbuf, int recvcount, MPI_Datatype recvtype);
 	int scatter_request(MPI_Request *request, void *recvbuf, int recvcount, MPI_Datatype recvtype, int root);
