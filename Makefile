@@ -24,7 +24,6 @@ install: all
 	install lib/libmpi.so $(PREFIX)/lib
 	install -m644 include/mpi.h $(PREFIX)/include
 	ln -sf mpicc $(PREFIX)/bin/mpic++
-	ln -sf mpicc $(PREFIX)/bin/mpicc
 	ln -sf mpicc $(PREFIX)/bin/mpiCC
 	ln -sf mpicc $(PREFIX)/bin/mpicxx
 
