@@ -1230,6 +1230,13 @@ int MPI_Allgather(const void *sendbuf, int sendcount, MPI_Datatype sendtype, voi
 
 int MPI_Allreduce(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm)
 {
+	if (!umpi || ((!sendbuf || !recvbuf) && count) || !datatype || !op || comm != MPI_COMM_WORLD)
+		return MPI_FAIL;
+	if (umpi->size == 1) {
+		if (sendbuf != MPI_IN_PLACE)
+			umpi_copy(sendbuf, datatype->iovec_, count, 0, recvbuf, datatype->iovec_, count, 0);
+		return MPI_SUCCESS;
+	}
 	MPI_Request request;
 	int ret = MPI_Iallreduce(sendbuf, recvbuf, count, datatype, op, comm, &request);
 	if (ret)
