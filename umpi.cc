@@ -1243,7 +1243,7 @@ int MPI_Iprobe(int source, int tag, MPI_Comm comm, int *flag, MPI_Status *status
 	struct cookie *cookie = umpi->self->find_any(source, tag);
 	if (!cookie) {
 		*flag = 0;
-		return empty_status(status);
+		return MPI_SUCCESS;
 	}
 	*flag = 1;
 	return get_status(status, cookie);
@@ -1251,8 +1251,10 @@ int MPI_Iprobe(int source, int tag, MPI_Comm comm, int *flag, MPI_Status *status
 
 int MPI_Test(MPI_Request *request, int *flag, MPI_Status *status)
 {
-	if (!umpi || !request || !*request || !flag)
+	if (!umpi || !flag)
 		return MPI_FAIL;
+	if (!request || !*request)
+		return empty_status(status);
 	struct cookie *cookie = static_cast<struct cookie *>(*request);
 	if (cookie->busy_) {
 		*flag = 0;
