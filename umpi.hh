@@ -153,6 +153,7 @@ public:
 	void wait(cookie_pointer cookie);
 	int wait_any(int count, umpi_request **cookies);
 	cookie *wait_any(int source, int tag);
+	cookie *find_any(int source, int tag);
 	void finalize(struct cookie *cookie);
 	int send_request(MPI_Request *request, const void *buf, int count, MPI_Datatype datatype, int tag);
 	int recv_request(MPI_Request *request, void *buf, int count, MPI_Datatype datatype, int source, int tag);

@@ -1223,6 +1223,32 @@ int MPI_Probe(int source, int tag, MPI_Comm comm, MPI_Status *status)
 	return get_status(status, cookie);
 }
 
+cookie *process::find_any(int source, int tag)
+{
+	mutex_.lock();
+	for (auto cookie = inbox_.begin(); cookie != inbox_.end(); cookie++) {
+		if (cookie->recv_match(source, tag)) {
+			mutex_.unlock();
+			return &(*cookie);
+		}
+	}
+	mutex_.unlock();
+	return nullptr;
+}
+
+int MPI_Iprobe(int source, int tag, MPI_Comm comm, int *flag, MPI_Status *status)
+{
+	if (!umpi || source < MPI_ANY_SOURCE || umpi->size <= source || tag < MPI_ANY_TAG || comm != MPI_COMM_WORLD || !flag || !status)
+		return MPI_FAIL;
+	struct cookie *cookie = umpi->self->find_any(source, tag);
+	if (!cookie) {
+		*flag = 0;
+		return empty_status(status);
+	}
+	*flag = 1;
+	return get_status(status, cookie);
+}
+
 int MPI_Test(MPI_Request *request, int *flag, MPI_Status *status)
 {
 	if (!umpi || !request || !*request || !flag)
