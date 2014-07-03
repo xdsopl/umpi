@@ -21,7 +21,7 @@ bin/umpiexec: umpiexec.cc lib/libumpi.so
 install: all
 	install -d $(PREFIX)/bin $(PREFIX)/lib $(PREFIX)/include
 	install bin/umpicc bin/umpiexec $(PREFIX)/bin
-	install -m644 lib/libumpi.so $(PREFIX)/lib
+	install lib/libumpi.so $(PREFIX)/lib
 	install -m644 include/umpi.h $(PREFIX)/include
 	ln -sf umpi.h $(PREFIX)/include/mpi.h
 	ln -sf umpicc $(PREFIX)/bin/mpic++
