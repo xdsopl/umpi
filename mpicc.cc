@@ -73,7 +73,7 @@ int main(int argc, char **argv)
 	else
 		command.push_back("clang++");
 	std::vector<std::string> compile = { "-pthread", "-I" + prefix + "include" };
-	std::vector<std::string> link = { "-Wl,-rpath," + prefix + "lib", "-L" + prefix + "lib", "-lumpi" };
+	std::vector<std::string> link = { "-Wl,-rpath," + prefix + "lib", "-L" + prefix + "lib", "-lmpi" };
 
 	std::vector<std::string> new_args;
 	if (commanding)

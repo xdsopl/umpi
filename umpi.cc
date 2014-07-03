@@ -5,7 +5,7 @@ To the extent possible under law, the author(s) have dedicated all copyright and
 You should have received a copy of the CC0 Public Domain Dedication along with this software. If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
 */
 
-#include "include/umpi.h"
+#include "include/mpi.h"
 #include "umpi.hh"
 #include "funcs.hh"
 #include <fcntl.h>

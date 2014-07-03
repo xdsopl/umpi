@@ -4,36 +4,31 @@ PREFIX = /opt/umpi
 
 .PHONY: all test install clean
 
-all: bin/umpicc bin/umpiexec
+all: bin/mpicc bin/mpiexec
 
 test: all
 	$(MAKE) -C tests
 
-lib/libumpi.so: umpi.cc *.hh include/umpi.h
+lib/libmpi.so: umpi.cc *.hh include/mpi.h
 	clang++ -stdlib=libc++ -o $@ $< $(CXXFLAGS) -shared -fPIC -lpthread
 
-bin/umpicc: umpicc.cc lib/libumpi.so
+bin/mpicc: mpicc.cc lib/libmpi.so
 	clang++ -stdlib=libc++ -o $@ $< $(CXXFLAGS)
 
-bin/umpiexec: umpiexec.cc lib/libumpi.so
+bin/mpiexec: mpiexec.cc lib/libmpi.so
 	clang++ -stdlib=libc++ -o $@ $< $(CXXFLAGS) -lpthread
 
 install: all
 	install -d $(PREFIX)/bin $(PREFIX)/lib $(PREFIX)/include
-	install bin/umpicc bin/umpiexec $(PREFIX)/bin
-	install lib/libumpi.so $(PREFIX)/lib
-	install -m644 include/umpi.h $(PREFIX)/include
-	ln -sf umpi.h $(PREFIX)/include/mpi.h
-	ln -sf umpicc $(PREFIX)/bin/mpic++
-	ln -sf umpicc $(PREFIX)/bin/mpicc
-	ln -sf umpicc $(PREFIX)/bin/mpiCC
-	ln -sf umpicc $(PREFIX)/bin/mpicxx
-	ln -sf umpicc $(PREFIX)/bin/umpic++
-	ln -sf umpicc $(PREFIX)/bin/umpiCC
-	ln -sf umpicc $(PREFIX)/bin/umpicxx
-	ln -sf umpiexec $(PREFIX)/bin/mpiexec
+	install bin/mpicc bin/mpiexec $(PREFIX)/bin
+	install lib/libmpi.so $(PREFIX)/lib
+	install -m644 include/mpi.h $(PREFIX)/include
+	ln -sf mpicc $(PREFIX)/bin/mpic++
+	ln -sf mpicc $(PREFIX)/bin/mpicc
+	ln -sf mpicc $(PREFIX)/bin/mpiCC
+	ln -sf mpicc $(PREFIX)/bin/mpicxx
 
 clean:
 	$(MAKE) -C tests clean
-	rm -f lib/libumpi.so bin/umpiexec bin/umpicc
+	rm -f lib/libmpi.so bin/mpiexec bin/mpicc
 

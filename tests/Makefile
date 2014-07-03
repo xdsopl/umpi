@@ -1,8 +1,8 @@
 
 CFLAGS = -std=c99 -D_GNU_SOURCE=1 -O3 -W -Wall -g
 
-MPICC = ../bin/umpicc
-MPIEXEC = ../bin/umpiexec
+MPICC = ../bin/mpicc
+MPIEXEC = ../bin/mpiexec
 
 .PHONY: test clean
 
