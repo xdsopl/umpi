@@ -11,6 +11,7 @@ You should have received a copy of the CC0 Public Domain Dedication along with t
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/uio.h>
+#include <fstream>
 
 int umpi_in_place;
 void *const MPI_IN_PLACE = static_cast<void *const>(&umpi_in_place);
@@ -110,29 +111,42 @@ int MPI_Init(int *argc, char ***argv)
 		perror("gethostname");
 		return MPI_FAIL;
 	}
+	int size = 1;
+	int rank = 0;
+	int mmap_flags = MAP_PRIVATE | MAP_ANONYMOUS;
+	int fd = -1;
 	char *name = getenv("UMPI_MMAP");
-	if (!name) {
-		fprintf(stderr, "env name UMPI_MMAP not set!\n");
-		return MPI_FAIL;
+	if (name) {
+		size = atoi(getenv("UMPI_SIZE"));
+		rank = atoi(getenv("UMPI_RANK"));
+		mmap_flags = MAP_SHARED;
+		fd = open(name, O_RDWR);
+		if (fd == -1) {
+			perror("open");
+			return MPI_FAIL;
+		}
+	} else {
+		std::cerr << "warning: missing UMPI environment. creating an artificial one!" << std::endl;
+		std::ofstream("/proc/self/oom_score_adj") << 500 << std::endl;
 	}
-	int size = atoi(getenv("UMPI_SIZE"));
-	int rank = atoi(getenv("UMPI_RANK"));
-	int fd = open(name, O_RDWR);
-	if (fd == -1) {
-		perror("open");
-		return MPI_FAIL;
-	}
+
 	mmap_len = calc_mmap_len(size);
-	mmap_addr = mmap(0, mmap_len, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+	mmap_addr = mmap(0, mmap_len, PROT_READ|PROT_WRITE, mmap_flags, fd, 0);
 
 	if (mmap_addr == MAP_FAILED) {
 		perror("mmap");
 		close(fd);
 		return MPI_FAIL;
 	}
-	if (close(fd) == -1) {
-		perror ("close");
-		return MPI_FAIL;
+	if (fd != -1) {
+		if (close(fd) == -1) {
+			perror ("close");
+			return MPI_FAIL;
+		}
+	} else {
+		memset(mmap_addr, 0, mmap_len);
+		new (mmap_addr) shared(size, static_cast<uint8_t *>(mmap_addr) + sizeof(shared), static_cast<uint8_t *>(mmap_addr) + mmap_len);
+		umpi = new struct umpi(size, rank, host);
 	}
 
 	umpi = new struct umpi(size, rank, host);
