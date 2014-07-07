@@ -178,6 +178,7 @@ private:
 class collect {
 	friend struct shared;
 public:
+	typedef based_ptr<int, &mmap_addr> int_pointer;
 	collect() : ticket_(0), joined_(0) {}
 	bool joined_last();
 	bool joined_first();
@@ -189,6 +190,8 @@ public:
 	int scan_request(MPI_Request *request, const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op);
 	int gather_request(MPI_Request *request, const void *sendbuf, int sendcount, MPI_Datatype sendtype, int root);
 	int root_gather_request(MPI_Request *request, void *recvbuf, int recvcount, MPI_Datatype recvtype);
+	int gatherv_request(MPI_Request *request, const void *sendbuf, int sendcount, MPI_Datatype sendtype, int root);
+	int root_gatherv_request(MPI_Request *request, void *recvbuf, const int *recvcounts, const int *displs, MPI_Datatype recvtype);
 	int scatter_request(MPI_Request *request, void *recvbuf, int recvcount, MPI_Datatype recvtype, int root);
 	int root_scatter_request(MPI_Request *request, const void *sendbuf, int sendcount, MPI_Datatype sendtype);
 private:
@@ -197,6 +200,7 @@ private:
 	ipc::mutex mutex_;
 	uint8_t sendbuf_[UMPI_MAX_IN_PLACE_LEN];
 	uint8_t recvbuf_[UMPI_MAX_IN_PLACE_LEN];
+	int_pointer displs_;
 	box_type box_;
 	iovec_pointer iovec_;
 	int count_;
@@ -207,6 +211,7 @@ private:
 struct shared {
 	typedef based_ptr<process, &mmap_addr> process_pointer;
 	typedef void_allocator::rebind<process>::other process_allocator;
+	typedef void_allocator::rebind<int>::other int_allocator;
 	shared(int size, void *begin, void *end) :
 		barrier(size), pool_state_(begin, end),
 		iovec_packed_(UMPI_ID_PACKED, 1),
@@ -225,6 +230,8 @@ struct shared {
 	{
 		pool_addr = &pool_state_;
 		procs = process_allocator::allocate(size);
+		for (int i = 0; i < UMPI_OUTSTANDING_COLLECTIVE_OPERATIONS; i++)
+			slots_[i].displs_ = int_allocator::allocate(size);
 	}
 	void init(int rank);
 	void commit(iovec_pointer &iovec);

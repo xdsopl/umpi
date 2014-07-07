@@ -966,6 +966,68 @@ int MPI_Igather(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void 
 	return slot->gather_request(request, sendbuf, sendcount, sendtype, root);
 }
 
+int collect::gatherv_request(MPI_Request *request, const void *sendbuf, int sendcount, MPI_Datatype sendtype, int root)
+{
+	auto cookie = box_.begin();
+	if (cookie != box_.end() && cookie->src_ == root) {
+		cookie->join();
+		if (joined_last())
+			cookie->owner_->move_to_pending(box_, cookie);
+		mutex_.unlock();
+		*request = &(*cookie);
+		return cookie->write_to_owner(sendbuf, sendtype->iovec_, sendcount, displs_[umpi->rank]);
+	}
+	*request = create_request(box_, const_cast<void *>(sendbuf), sendtype->iovec_, sendcount, sendcount, umpi->rank, UMPI_TAG_CC);
+
+	mutex_.unlock();
+	return MPI_SUCCESS;
+}
+
+int collect::root_gatherv_request(MPI_Request *request, void *recvbuf, const int *recvcounts, const int *displs, MPI_Datatype recvtype)
+{
+	int totalcount = 0;
+	for (int i = 0; i < umpi->size; i++)
+		totalcount += recvcounts[i];
+
+	memcpy(&(*displs_), displs, sizeof(int) * umpi->size);
+
+	box_type todo;
+	todo.splice(todo.begin(), box_);
+
+	if (joined_last()) {
+		cookie &borrow = todo.back();
+		borrow.join();
+		*request = &borrow;
+	} else {
+		*request = create_request(box_, recvbuf, recvtype->iovec_, totalcount, 0, umpi->rank, UMPI_TAG_CC, umpi->size - joined_);
+	}
+	mutex_.unlock();
+
+	for (auto cookie = todo.begin(); cookie != todo.end();) {
+		auto pending = cookie++;
+		pending->owner_->move_to_pending(todo, pending);
+		int ret = pending->read_from_owner(recvbuf, recvtype->iovec_, totalcount, recvcounts[pending->src_], displs[pending->src_]);
+		if (ret)
+			return ret;
+	}
+	return MPI_SUCCESS;
+}
+
+int MPI_Igatherv(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, const int *recvcounts, const int *displs, MPI_Datatype recvtype, int root, MPI_Comm comm, MPI_Request *request)
+{
+	if (!umpi || (!sendbuf && sendcount) || (sendbuf != MPI_IN_PLACE && !sendtype) || root < 0 || umpi->size <= root || comm != MPI_COMM_WORLD)
+		return MPI_FAIL;
+	collect *slot = umpi->shared->get_current_slot();
+	if (umpi->rank == root) {
+		if (!recvbuf || !recvcounts || !displs || !recvtype || (sendbuf != MPI_IN_PLACE && sendcount * sendtype->len() != recvcounts[umpi->rank] * recvtype->len()))
+			return MPI_FAIL;
+		if (sendbuf != MPI_IN_PLACE)
+			umpi_copy(sendbuf, sendtype->iovec_, sendcount, 0, recvbuf, recvtype->iovec_, recvcounts[umpi->rank], displs[umpi->rank]);
+		return slot->root_gatherv_request(request, recvbuf, recvcounts, displs, recvtype);
+	}
+	return slot->gatherv_request(request, sendbuf, sendcount, sendtype, root);
+}
+
 int collect::scatter_request(MPI_Request *request, void *recvbuf, int recvcount, MPI_Datatype recvtype, int root)
 {
 	auto cookie = box_.begin();
@@ -1347,6 +1409,15 @@ int MPI_Gather(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *
 {
 	MPI_Request request;
 	int ret = MPI_Igather(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, root, comm, &request);
+	if (ret)
+		return ret;
+	return MPI_Wait(&request, nullptr);
+}
+
+int MPI_Gatherv(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, const int *recvcounts, const int *displs, MPI_Datatype recvtype, int root, MPI_Comm comm)
+{
+	MPI_Request request;
+	int ret = MPI_Igatherv(sendbuf, sendcount, sendtype, recvbuf, recvcounts, displs, recvtype, root, comm, &request);
 	if (ret)
 		return ret;
 	return MPI_Wait(&request, nullptr);
