@@ -559,14 +559,14 @@ int cookie::write_to_owner(const void *buf, iovec_pointer iovec, int count, int 
 
 int cookie::read_from_owner(void *buf, iovec_pointer iovec, int size, int count, int seek, int skip)
 {
-	count = count ? count : ((size_ - skip * count_) * iovec_->len()) / iovec->len();
+	count = count ? count : ((size_ - skip) * iovec_->len()) / iovec->len();
 	size_t total_bytes = count * iovec->len();
-	if (size_ * iovec_->len() < skip * count_ * iovec_->len() + total_bytes || size * iovec->len() < seek * count * iovec->len() + total_bytes)
+	if (size_ * iovec_->len() < skip * iovec_->len() + total_bytes || size * iovec->len() < seek * iovec->len() + total_bytes)
 		return owner_->notify_done(this, MPI_FAIL);
 #if 0
 	if (iovec->contiguous() && iovec_->contiguous()) {
-		struct iovec local = { static_cast<uint8_t *>(buf) + seek * total_bytes, total_bytes };
-		struct iovec remote = { static_cast<uint8_t *>(buf_) + skip * total_bytes, total_bytes };
+		struct iovec local = { static_cast<uint8_t *>(buf) + seek * iovec->len(), total_bytes };
+		struct iovec remote = { static_cast<uint8_t *>(buf_) + skip * iovec_->len(), total_bytes };
 		if ((ssize_t)total_bytes != process_vm_readv(owner_->pid_, &local, 1, &remote, 1, 0)) {
 			perror("process_vm_readv");
 			return owner_->notify_done(this, MPI_FAIL);
@@ -579,22 +579,22 @@ int cookie::read_from_owner(void *buf, iovec_pointer iovec, int size, int count,
 	if (iovec->scattered()) {
 		ptrdiff_t stride = iovec->stride();
 		struct iovec *iov = local_iov;
-		for (int j = seek * count; j < (seek + 1) * count; j++)
+		for (int j = seek; j < (seek + count); j++)
 			for (auto &e: *iovec)
 				*iov++ = { static_cast<uint8_t *>(const_cast<void *>(buf)) + j * stride + e.dis_, e.len_ };
 	} else {
-		local_iov[0] = { static_cast<uint8_t *>(const_cast<void *>(buf)) + seek * total_bytes, total_bytes };
+		local_iov[0] = { static_cast<uint8_t *>(const_cast<void *>(buf)) + seek * iovec->len(), total_bytes };
 	}
-	size_t riovcnt = iovec_->scattered() ? iovec_->count() * (size_ - skip * count_) : 1;
+	size_t riovcnt = iovec_->scattered() ? iovec_->count() * (size_ - skip) : 1;
 	struct iovec remote_iov[riovcnt];
 	if (iovec_->scattered()) {
 		ptrdiff_t stride = iovec_->stride();
 		struct iovec *iov = remote_iov;
-		for (int j = skip * count_; j < size_; j++)
+		for (int j = skip; j < size_; j++)
 			for (auto &e: *iovec_)
 				*iov++ = { static_cast<uint8_t *>(buf_) + j * stride + e.dis_, e.len_ };
 	} else {
-		remote_iov[0] = { static_cast<uint8_t *>(buf_) + skip * total_bytes, total_bytes };
+		remote_iov[0] = { static_cast<uint8_t *>(buf_) + skip * iovec_->len(), total_bytes };
 	}
 	if ((ssize_t)total_bytes != process_vm_readv(owner_->pid_, local_iov, liovcnt, remote_iov, riovcnt, 0)) {
 		perror("process_vm_readv");
@@ -975,7 +975,7 @@ int collect::scatter_request(MPI_Request *request, void *recvbuf, int recvcount,
 			cookie->owner_->move_to_pending(box_, cookie);
 		mutex_.unlock();
 		*request = &(*cookie);
-		return cookie->read_from_owner(recvbuf, recvtype->iovec_, recvcount, recvcount, 0, umpi->rank);
+		return cookie->read_from_owner(recvbuf, recvtype->iovec_, recvcount, recvcount, 0, cookie->count_ * umpi->rank);
 	}
 	*request = create_request(box_, recvbuf, recvtype->iovec_, recvcount, recvcount, umpi->rank, UMPI_TAG_CC);
 
