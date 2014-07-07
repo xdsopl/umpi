@@ -514,13 +514,13 @@ size_t umpi_copy(const void *read_buf, iovec_pointer read_iovec, int read_count,
 int cookie::write_to_owner(const void *buf, iovec_pointer iovec, int count, int seek, int skip)
 {
 	size_t total_bytes = count * iovec->len();
-	if (size_ * iovec_->len() < seek * count_ * iovec_->len() + total_bytes)
+	if (size_ * iovec_->len() < seek * iovec_->len() + total_bytes)
 		return owner_->notify_done(this, MPI_FAIL);
 	count_ = count_ * iovec_->len() < total_bytes ? count_ : total_bytes / iovec_->len();
 #if 0
 	if (iovec->contiguous() && iovec_->contiguous()) {
-		struct iovec local = { static_cast<uint8_t *>(const_cast<void *>(buf)) + skip * total_bytes, total_bytes };
-		struct iovec remote = { static_cast<uint8_t *>(buf_) + seek * total_bytes, total_bytes };
+		struct iovec local = { static_cast<uint8_t *>(const_cast<void *>(buf)) + skip * iovec->len(), total_bytes };
+		struct iovec remote = { static_cast<uint8_t *>(buf_) + seek * iovec_->len(), total_bytes };
 		if ((ssize_t)total_bytes != process_vm_writev(owner_->pid_, &local, 1, &remote, 1, 0)) {
 			perror("process_vm_writev");
 			return owner_->notify_done(this, MPI_FAIL);
@@ -533,22 +533,22 @@ int cookie::write_to_owner(const void *buf, iovec_pointer iovec, int count, int 
 	if (iovec->scattered()) {
 		ptrdiff_t stride = iovec->stride();
 		struct iovec *iov = local_iov;
-		for (int j = skip * count; j < (skip + 1) * count; j++)
+		for (int j = skip; j < (skip + count); j++)
 			for (auto &e: *iovec)
 				*iov++ = { static_cast<uint8_t *>(const_cast<void *>(buf)) + j * stride + e.dis_, e.len_ };
 	} else {
-		local_iov[0] = { static_cast<uint8_t *>(const_cast<void *>(buf)) + skip * total_bytes, total_bytes };
+		local_iov[0] = { static_cast<uint8_t *>(const_cast<void *>(buf)) + skip * iovec->len(), total_bytes };
 	}
-	size_t riovcnt = iovec_->scattered() ? iovec_->count() * (size_ - seek * count_) : 1;
+	size_t riovcnt = iovec_->scattered() ? iovec_->count() * (size_ - seek) : 1;
 	struct iovec remote_iov[riovcnt];
 	if (iovec_->scattered()) {
 		ptrdiff_t stride = iovec_->stride();
 		struct iovec *iov = remote_iov;
-		for (int j = seek * count_; j < size_; j++)
+		for (int j = seek; j < size_; j++)
 			for (auto &e: *iovec_)
 				*iov++ = { static_cast<uint8_t *>(buf_) + j * stride + e.dis_, e.len_ };
 	} else {
-		remote_iov[0] = { static_cast<uint8_t *>(buf_) + seek * total_bytes, total_bytes };
+		remote_iov[0] = { static_cast<uint8_t *>(buf_) + seek * iovec_->len(), total_bytes };
 	}
 	if ((ssize_t)total_bytes != process_vm_writev(owner_->pid_, local_iov, liovcnt, remote_iov, riovcnt, 0)) {
 		perror("process_vm_writev");
@@ -700,10 +700,11 @@ int collect::allgather_request(MPI_Request *request, const void *sendbuf, int se
 	}
 
 	int ret;
+	auto root = box_.begin();
 	if (sendbuf == MPI_IN_PLACE)
-		ret = box_.front().write_to_owner(recvbuf, recvtype->iovec_, recvcount, umpi->rank, umpi->rank);
+		ret = root->write_to_owner(recvbuf, recvtype->iovec_, recvcount, root->count_ * umpi->rank, recvcount * umpi->rank);
 	else
-		ret = box_.front().write_to_owner(sendbuf, sendtype->iovec_, sendcount, umpi->rank);
+		ret = root->write_to_owner(sendbuf, sendtype->iovec_, sendcount, root->count_ * umpi->rank);
 	if (ret)
 		return ret;
 
@@ -918,7 +919,7 @@ int collect::gather_request(MPI_Request *request, const void *sendbuf, int sendc
 			cookie->owner_->move_to_pending(box_, cookie);
 		mutex_.unlock();
 		*request = &(*cookie);
-		return cookie->write_to_owner(sendbuf, sendtype->iovec_, sendcount, umpi->rank);
+		return cookie->write_to_owner(sendbuf, sendtype->iovec_, sendcount, cookie->count_ * umpi->rank);
 	}
 	*request = create_request(box_, const_cast<void *>(sendbuf), sendtype->iovec_, sendcount, sendcount, umpi->rank, UMPI_TAG_CC);
 
@@ -999,7 +1000,7 @@ int collect::root_scatter_request(MPI_Request *request, const void *sendbuf, int
 	for (auto cookie = todo.begin(); cookie != todo.end();) {
 		auto pending = cookie++;
 		pending->owner_->move_to_pending(todo, pending);
-		int ret = pending->write_to_owner(sendbuf, sendtype->iovec_, sendcount, 0, pending->src_);
+		int ret = pending->write_to_owner(sendbuf, sendtype->iovec_, sendcount, 0, sendcount * pending->src_);
 		if (ret)
 			return ret;
 	}
