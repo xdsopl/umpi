@@ -475,8 +475,8 @@ size_t umpi_copy(const void *read_buf, iovec_pointer read_iovec, int read_count,
 		return 0;
 	if (read_iovec->contiguous() && write_iovec->contiguous()) {
 		memcpy(
-			static_cast<uint8_t *>(write_buf) + write_seek * total_bytes,
-			static_cast<const uint8_t *>(read_buf) + read_skip * total_bytes,
+			static_cast<uint8_t *>(write_buf) + write_seek * write_iovec->len(),
+			static_cast<const uint8_t *>(read_buf) + read_skip * read_iovec->len(),
 			total_bytes
 		);
 		return total_bytes;
@@ -487,22 +487,22 @@ size_t umpi_copy(const void *read_buf, iovec_pointer read_iovec, int read_count,
 	if (read_iovec->scattered()) {
 		ptrdiff_t stride = read_iovec->stride();
 		struct iovec *iov = local_iov;
-		for (int j = read_skip * read_count; j < (read_skip + 1) * read_count; j++)
+		for (int j = read_skip; j < (read_skip + read_count); j++)
 			for (auto &e: *read_iovec)
 				*iov++ = { static_cast<uint8_t *>(const_cast<void *>(read_buf)) + j * stride + e.dis_, e.len_ };
 	} else {
-		local_iov[0] = { static_cast<uint8_t *>(const_cast<void *>(read_buf)) + read_skip * total_bytes, total_bytes };
+		local_iov[0] = { static_cast<uint8_t *>(const_cast<void *>(read_buf)) + read_skip * read_iovec->len(), total_bytes };
 	}
 	size_t riovcnt = write_iovec->scattered() ? write_iovec->count() * write_count : 1;
 	struct iovec remote_iov[riovcnt];
 	if (write_iovec->scattered()) {
 		ptrdiff_t stride = write_iovec->stride();
 		struct iovec *iov = remote_iov;
-		for (int j = write_seek * write_count; j < (write_seek + 1) * write_count; j++)
+		for (int j = write_seek; j < (write_seek + write_count); j++)
 			for (auto &e: *write_iovec)
 				*iov++ = { static_cast<uint8_t *>(write_buf) + j * stride + e.dis_, e.len_ };
 	} else {
-		remote_iov[0] = { static_cast<uint8_t *>(write_buf) + write_seek * total_bytes, total_bytes };
+		remote_iov[0] = { static_cast<uint8_t *>(write_buf) + write_seek * write_iovec->len(), total_bytes };
 	}
 	if ((ssize_t)total_bytes != process_vm_writev(umpi->self->pid_, local_iov, liovcnt, remote_iov, riovcnt, 0)) {
 		perror("process_vm_writev");
@@ -693,7 +693,7 @@ int collect::allgather_request(MPI_Request *request, const void *sendbuf, int se
 {
 	if (joined_first()) {
 		if (sendbuf != MPI_IN_PLACE)
-			umpi_copy(sendbuf, sendtype->iovec_, sendcount, 0, recvbuf, recvtype->iovec_, recvcount, umpi->rank);
+			umpi_copy(sendbuf, sendtype->iovec_, sendcount, 0, recvbuf, recvtype->iovec_, recvcount, umpi->rank * recvcount);
 		*request = create_request(box_, recvbuf, recvtype->iovec_, recvcount * umpi->size, recvcount, umpi->rank, UMPI_TAG_CC, umpi->size);
 		mutex_.unlock();
 		return MPI_SUCCESS;
@@ -959,7 +959,7 @@ int MPI_Igather(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void 
 		if ((!recvbuf && recvcount) || !recvtype || (sendbuf != MPI_IN_PLACE && sendcount * sendtype->len() != recvcount * recvtype->len()))
 			return MPI_FAIL;
 		if (sendbuf != MPI_IN_PLACE)
-			umpi_copy(sendbuf, sendtype->iovec_, sendcount, 0, recvbuf, recvtype->iovec_, recvcount, umpi->rank);
+			umpi_copy(sendbuf, sendtype->iovec_, sendcount, 0, recvbuf, recvtype->iovec_, recvcount, umpi->rank * recvcount);
 		return slot->root_gather_request(request, recvbuf, recvcount, recvtype);
 	}
 	return slot->gather_request(request, sendbuf, sendcount, sendtype, root);
@@ -1015,7 +1015,7 @@ int MPI_Iscatter(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void
 		if ((!sendbuf && sendcount) || !sendtype || (recvbuf != MPI_IN_PLACE && sendcount * sendtype->len() != recvcount * recvtype->len()))
 			return MPI_FAIL;
 		if (recvbuf != MPI_IN_PLACE)
-			umpi_copy(sendbuf, sendtype->iovec_, sendcount, umpi->rank, recvbuf, recvtype->iovec_, recvcount, 0);
+			umpi_copy(sendbuf, sendtype->iovec_, sendcount, umpi->rank * sendcount, recvbuf, recvtype->iovec_, recvcount, 0);
 		return slot->root_scatter_request(request, sendbuf, sendcount, sendtype);
 	}
 	return slot->scatter_request(request, recvbuf, recvcount, recvtype, root);
