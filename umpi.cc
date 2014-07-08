@@ -1427,13 +1427,20 @@ int MPI_Allgatherv(const void *sendbuf, int sendcount, MPI_Datatype sendtype, vo
 {
 	for (int root = 0; root < umpi->size; root++) {
 		int ret;
+		if (root != umpi->rank)
+			ret = MPI_Barrier(comm);
+		MPI_Request request;
 		if (sendbuf == MPI_IN_PLACE && root != umpi->rank)
-			ret = MPI_Gatherv(static_cast<uint8_t *>(recvbuf) + displs[umpi->rank] * recvtype->stride(), recvcounts[umpi->rank], recvtype, 0, 0, 0, 0, root, comm);
+			ret = MPI_Igatherv(static_cast<uint8_t *>(recvbuf) + displs[umpi->rank] * recvtype->stride(), recvcounts[umpi->rank], recvtype, 0, 0, 0, 0, root, comm, &request);
 		else
-			ret = MPI_Gatherv(sendbuf, sendcount, sendtype, recvbuf, recvcounts, displs, recvtype, root, comm);
+			ret = MPI_Igatherv(sendbuf, sendcount, sendtype, recvbuf, recvcounts, displs, recvtype, root, comm, &request);
 		if (ret)
 			return ret;
-		ret = MPI_Barrier(comm);
+		if (root == umpi->rank)
+			ret = MPI_Barrier(comm);
+		if (ret)
+			return ret;
+		ret = MPI_Wait(&request, nullptr);
 		if (ret)
 			return ret;
 	}
