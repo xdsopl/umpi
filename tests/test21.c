@@ -11,7 +11,7 @@ You should have received a copy of the CC0 Public Domain Dedication along with t
 #include <mpi.h>
 #include "test.h"
 
-// please also see test20 how to avoid the too generic and therefore expensive Allgatherv
+// please also see test20 how to avoid the too generic and therefore expensive Allgatherv for simpler use cases
 
 int main(int argc, char **argv)
 {
@@ -27,31 +27,32 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	srand(rank + MPI_Wtime());
-	int sendcount = rand()%10 + 1;
-	char sendbuf[sendcount];
-	for (int i = 0; i < sendcount; i++)
-		sendbuf[i] = '0' + rank%10;
-	fprintf(stderr, "[ %d ] sendcount: %d\n", rank, sendcount);
-	int recvcounts[size];
-	if (MPI_Allgather(&sendcount, 1, MPI_INT, &recvcounts, 1, MPI_INT, MPI_COMM_WORLD)) {
-		fprintf(stderr, "MPI_Allgather failed\n");
-		MPI_Abort(MPI_COMM_WORLD, 1);
-	}
-	int totalcount = 0;
+	int counts[size];
 	for (int i = 0; i < size; i++)
-		totalcount += recvcounts[i];
-	fprintf(stderr, "[ %d ] totalcount: %d\n", rank, totalcount);
-	char recvbuf[totalcount+1];
-	memset(recvbuf, 0, sizeof(recvbuf));
+		counts[i] = i % 7;
 	int displs[size];
 	displs[0] = 0;
 	for (int i = 1; i < size; i++)
-		displs[i] = displs[i - 1] + recvcounts[i - 1];
-	if (MPI_Allgatherv(sendbuf, sendcount, MPI_CHAR, recvbuf, recvcounts, displs, MPI_CHAR, MPI_COMM_WORLD)) {
+		displs[i] = displs[i - 1] + counts[i - 1];
+	for (int j = 0; j < size; j++) {
+		int i = rand() % (size - 1);
+		if (displs[i] + counts[i] != displs[i+1])
+			continue;
+		displs[i] += counts[i+1];
+		displs[i+1] -= counts[i];
+	}
+	int totalcount = 0;
+	for (int i = 0; i < size; i++)
+		totalcount += counts[i];
+	char buf[totalcount+1];
+	memset(buf, 0, sizeof(buf));
+	for (int i = 0; i < counts[rank]; i++)
+		buf[displs[rank] + i] = '0' + rank % 10;
+	if (MPI_Allgatherv(MPI_IN_PLACE, 0, 0, buf, counts, displs, MPI_CHAR, MPI_COMM_WORLD)) {
 		fprintf(stderr, "MPI_Allgatherv failed\n");
 		MPI_Abort(MPI_COMM_WORLD, 1);
 	}
-	fprintf(stderr, "[ %d ] recieved Allgatherv \"%s\"\n", rank, recvbuf);
+	fprintf(stderr, "[ %d ] recieved Allgatherv \"%s\"\n", rank, buf);
 	MPI_Finalize();
 	return 0;
 }
