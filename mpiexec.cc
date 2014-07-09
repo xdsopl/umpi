@@ -10,6 +10,21 @@ You should have received a copy of the CC0 Public Domain Dedication along with t
 #include <sys/mman.h>
 #include <fstream>
 
+char mmap_name[] = "/dev/shm/umpiXXXXXX";
+
+void cleanup(int = 0)
+{
+	signal(SIGTERM, SIG_IGN);
+	std::cerr << "terminating all remaining processes." << std::endl;
+	kill(-getpid(), SIGTERM);
+	std::cerr << "cleaning up." << std::endl;
+	if (munmap(mmap_addr, mmap_len))
+		perror("munmap");
+	if (remove(mmap_name))
+		perror("remove");
+	exit(1);
+}
+
 int main(int argc, char **argv)
 {
 	if (argc < 4 || strcmp(argv[1], "-np")) {
@@ -22,16 +37,15 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	char name[] = "/dev/shm/umpiXXXXXX";
-	int fd = mkstemp(name);
+	int fd = mkstemp(mmap_name);
 	if (fd < 0) {
 		perror("mkstemp");
 		return 1;
 	}
 
-	if (setenv("UMPI_MMAP", name, 1)) {
+	if (setenv("UMPI_MMAP", mmap_name, 1)) {
 		perror("setenv");
-		if (remove(name))
+		if (remove(mmap_name))
 			perror("remove");
 		return 1;
 	}
@@ -40,7 +54,7 @@ int main(int argc, char **argv)
 	snprintf(tmp, sizeof(tmp), "%d", size);
 	if (setenv("UMPI_SIZE", tmp, 1)) {
 		perror("setenv");
-		if (remove(name))
+		if (remove(mmap_name))
 			perror("remove");
 		return 1;
 	}
@@ -48,7 +62,7 @@ int main(int argc, char **argv)
 	mmap_len = calc_mmap_len(size);
 	if (ftruncate(fd, mmap_len)) {
 		perror("ftruncate");
-		if (remove(name))
+		if (remove(mmap_name))
 			perror("remove");
 		return 1;
 	}
@@ -56,7 +70,7 @@ int main(int argc, char **argv)
 	mmap_addr = mmap(0, mmap_len, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
 	if (mmap_addr == MAP_FAILED) {
 		perror("mmap");
-		if (remove(name))
+		if (remove(mmap_name))
 			perror("remove");
 		return 1;
 	}
@@ -65,7 +79,7 @@ int main(int argc, char **argv)
 		perror("close");
 		if (munmap(mmap_addr, mmap_len))
 			perror("munmap");
-		if (remove(name))
+		if (remove(mmap_name))
 			perror("remove");
 		return 1;
 	}
@@ -80,50 +94,46 @@ int main(int argc, char **argv)
 			perror("fork");
 			if (munmap(mmap_addr, mmap_len))
 				perror("munmap");
-			if (remove(name))
+			if (remove(mmap_name))
 				perror("remove");
 			return 1;
 		} else if (0 == pid) {
-			signal(SIGUSR1, exit);
 			char tmp[8];
 			snprintf(tmp, sizeof(tmp), "%d", rank);
 			if (setenv("UMPI_RANK", tmp, 1)) {
 				perror("setenv");
 				if (munmap(mmap_addr, mmap_len))
 					perror("munmap");
-				if (remove(name))
+				if (remove(mmap_name))
 					perror("remove");
 				return 1;
 			}
 			std::ofstream("/proc/self/oom_score_adj") << 500 << std::endl;
-
 			execvp(argv[3], argv+3);
 			perror("execvp");
 			return 1;
 		}
 	}
 
-	int ret = 0;
+	signal(SIGTERM, cleanup);
+	signal(SIGINT, cleanup);
+
 	int status;
 	pid_t pid;
-	while (!ret && (pid = wait(&status)) > 0) {
+	while ((pid = wait(&status)) > 0) {
 		if (WIFEXITED(status) && WEXITSTATUS(status)) {
-			ret = 1;
 			std::cerr << "rank " << shared->find_rank(pid) << " (pid " << pid << ") terminated with nonzero exit status " << WEXITSTATUS(status) << std::endl;
+			cleanup();
 		} else if (WIFSIGNALED(status)) {
-			ret = 1;
 			std::cerr << "rank " << shared->find_rank(pid) << " (pid " << pid << ") killed by signal " << WTERMSIG(status) << " (" << strsignal(WTERMSIG(status)) << ")" << std::endl;
+			cleanup();
 		}
 	}
-	if (ret) {
-		std::cerr << "aborting all remaining processes." << std::endl;
-		signal(SIGUSR1, SIG_IGN);
-		kill(-getpid(), SIGUSR1);
-	}
+
 	if (munmap(mmap_addr, mmap_len))
 		perror("munmap");
-	if (remove(name))
+	if (remove(mmap_name))
 		perror("remove");
-	return ret;
+	return 0;
 }
 
