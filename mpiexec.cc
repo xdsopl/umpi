@@ -104,8 +104,17 @@ int main(int argc, char **argv)
 
 	int ret = 0;
 	int status;
-	while (wait(&status) > 0)
-		ret |= WEXITSTATUS(status);
+	while (wait(&status) > 0) {
+		if (WIFEXITED(status)) {
+			if (WEXITSTATUS(status)) {
+				ret = WEXITSTATUS(status);
+				std::cerr << "nonzero exit status: " << WEXITSTATUS(status) << std::endl;
+			}
+		} else if (WIFSIGNALED(status)) {
+			std::cerr << "killed by signal: " << WTERMSIG(status) << " (" << strsignal(WTERMSIG(status)) << ")" << std::endl;
+			ret |= 1;
+		}
+	}
 
 	if (munmap(mmap_addr, mmap_len))
 		perror("munmap");
