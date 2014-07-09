@@ -393,21 +393,21 @@ int MPI_Comm_size(MPI_Comm comm, int *size)
 
 int MPI_Comm_dup(MPI_Comm comm, MPI_Comm *newcomm)
 {
-	if (!comm)
+	if (!comm || comm != MPI_COMM_SELF || comm != MPI_COMM_WORLD)
 		return MPI_ERR_COMM;
 	if (!newcomm)
 		return MPI_ERR_ARG;
-	*newcomm = new umpi_comm(*comm);
-	return *newcomm ? MPI_SUCCESS : MPI_ERR_NO_MEM;
+	*newcomm = comm;
+	return MPI_SUCCESS;
 }
 
 int MPI_Comm_free(MPI_Comm *comm)
 {
 	if (!comm)
 		return MPI_ERR_ARG;
-	if (!*comm || *comm == MPI_COMM_SELF || *comm == MPI_COMM_WORLD)
+	if (!*comm || *comm != MPI_COMM_SELF || *comm != MPI_COMM_WORLD)
 		return MPI_ERR_COMM;
-	delete *comm;
+	*comm = nullptr;
 	return MPI_SUCCESS;
 }
 
