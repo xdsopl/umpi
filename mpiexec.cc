@@ -72,7 +72,7 @@ int main(int argc, char **argv)
 
 	memset(mmap_addr, 0, mmap_len);
 
-	new (mmap_addr) shared(size, static_cast<uint8_t *>(mmap_addr) + sizeof(shared), static_cast<uint8_t *>(mmap_addr) + mmap_len);
+	struct shared *shared = new (mmap_addr) struct shared(size, static_cast<uint8_t *>(mmap_addr) + sizeof(struct shared), static_cast<uint8_t *>(mmap_addr) + mmap_len);
 
 	for (int rank = 0; rank < size; rank++) {
 		pid_t pid = fork();
@@ -84,6 +84,7 @@ int main(int argc, char **argv)
 				perror("remove");
 			return 1;
 		} else if (0 == pid) {
+			signal(SIGUSR1, exit);
 			char tmp[8];
 			snprintf(tmp, sizeof(tmp), "%d", rank);
 			if (setenv("UMPI_RANK", tmp, 1)) {
@@ -104,18 +105,21 @@ int main(int argc, char **argv)
 
 	int ret = 0;
 	int status;
-	while (wait(&status) > 0) {
-		if (WIFEXITED(status)) {
-			if (WEXITSTATUS(status)) {
-				ret = WEXITSTATUS(status);
-				std::cerr << "nonzero exit status: " << WEXITSTATUS(status) << std::endl;
-			}
+	pid_t pid;
+	while (!ret && (pid = wait(&status)) > 0) {
+		if (WIFEXITED(status) && WEXITSTATUS(status)) {
+			ret = 1;
+			std::cerr << "rank " << shared->find_rank(pid) << " (pid " << pid << ") terminated with nonzero exit status " << WEXITSTATUS(status) << std::endl;
 		} else if (WIFSIGNALED(status)) {
-			std::cerr << "killed by signal: " << WTERMSIG(status) << " (" << strsignal(WTERMSIG(status)) << ")" << std::endl;
-			ret |= 1;
+			ret = 1;
+			std::cerr << "rank " << shared->find_rank(pid) << " (pid " << pid << ") killed by signal " << WTERMSIG(status) << " (" << strsignal(WTERMSIG(status)) << ")" << std::endl;
 		}
 	}
-
+	if (ret) {
+		std::cerr << "aborting all remaining processes." << std::endl;
+		signal(SIGUSR1, SIG_IGN);
+		kill(-getpid(), SIGUSR1);
+	}
 	if (munmap(mmap_addr, mmap_len))
 		perror("munmap");
 	if (remove(name))

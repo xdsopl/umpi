@@ -226,7 +226,8 @@ struct shared {
 		iovec_unsigned_long_(UMPI_ID_UNSIGNED_LONG, sizeof(unsigned long)),
 		iovec_float_(UMPI_ID_FLOAT, sizeof(float)),
 		iovec_double_(UMPI_ID_DOUBLE, sizeof(double)),
-		iovec_long_double_(UMPI_ID_LONG_DOUBLE, sizeof(long double))
+		iovec_long_double_(UMPI_ID_LONG_DOUBLE, sizeof(long double)),
+		size_(size)
 	{
 		pool_addr = &pool_state_;
 		procs = process_allocator::allocate(size);
@@ -235,6 +236,13 @@ struct shared {
 	}
 	void init(int rank);
 	void commit(iovec_pointer &iovec);
+	int find_rank(pid_t pid)
+	{
+		for (int i = 0; i < size_; i++)
+			if (procs[i].pid_ == pid)
+				return i;
+		return -1;
+	}
 	collect *get_current_slot();
 	ipc::barrier barrier;
 	process_pointer procs;
@@ -256,6 +264,7 @@ private:
 	umpi_iovec iovec_float_;
 	umpi_iovec iovec_double_;
 	umpi_iovec iovec_long_double_;
+	int size_;
 };
 
 static size_t calc_mmap_len(int size)
