@@ -10,6 +10,20 @@ Finally, a pool allocator using based_ptr and the nice libc++ allows us to use s
 Processes communicate entirely over shared memory and no sockets get opened.
 This allows us to start thousands of processes on a single shared memory Computer.
 
+Dependencies:
+
+"Cross Memory Support" in Linux:
+CONFIG_CROSS_MEMORY_ATTACH=y
+Option can be found in "Processor type and features"
+
+A proper C++11 Standard Library:
+libc++
+http://libcxx.llvm.org/
+
+A proper C99 and C++11 Compiler:
+clang, clang++
+http://clang.llvm.org/
+
 If you would like to help develop umpi and send me Patches:
 
 Please try to follow the Linux Coding Style:
