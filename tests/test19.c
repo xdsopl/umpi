@@ -62,7 +62,7 @@ int main(int argc, char **argv)
 		fprintf(stderr, "MPI_Gatherv failed\n");
 		MPI_Abort(MPI_COMM_WORLD, 1);
 	}
-	fprintf(stderr, "[ %d ] recieved Gatherv \"%s\"\n", rank, recvbuf);
+	fprintf(stderr, "[ %d ] received Gatherv \"%s\"\n", rank, recvbuf);
 	MPI_Finalize();
 	return 0;
 }

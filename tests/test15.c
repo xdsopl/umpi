@@ -27,7 +27,7 @@ int main(int argc, char **argv)
 		fprintf(stderr, "MPI_Allreduce failed\n");
 		MPI_Abort(MPI_COMM_WORLD, 1);
 	}
-	fprintf(stderr, "[ %d ] recieved in place min Allreduce %d %d\n", rank, buf[0], buf[1]);
+	fprintf(stderr, "[ %d ] received in place min Allreduce %d %d\n", rank, buf[0], buf[1]);
 	MPI_Finalize();
 	return 0;
 }

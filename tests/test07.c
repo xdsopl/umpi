@@ -42,7 +42,7 @@ int main(int argc, char **argv)
 	}
 	stop = MPI_Wtime();
 	msec = 1000 * (stop - start);
-	fprintf(stderr, "[ %d ] recieved Bcast \"%s\" after %d milliseconds.\n", rank, msg, msec);
+	fprintf(stderr, "[ %d ] received Bcast \"%s\" after %d milliseconds.\n", rank, msg, msec);
 	MPI_Finalize();
 	return 0;
 }

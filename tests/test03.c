@@ -43,7 +43,7 @@ int main(int argc, char **argv)
 			fprintf(stderr, "MPI_Get_count failed\n");
 			MPI_Abort(MPI_COMM_WORLD, 1);
 		}
-		fprintf(stderr, "[ %d ] recieved msg \"%s\" of %d chars.\n", rank, msg, count);
+		fprintf(stderr, "[ %d ] received msg \"%s\" of %d chars.\n", rank, msg, count);
 	}
 	MPI_Finalize();
 	return 0;

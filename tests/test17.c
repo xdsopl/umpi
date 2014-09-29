@@ -30,7 +30,7 @@ int main(int argc, char **argv)
 		MPI_Abort(MPI_COMM_WORLD, 1);
 	}
 	if (rank)
-		fprintf(stderr, "[ %d ] recieved sum Exscan %3d %3d\n", rank, recvbuf[0], recvbuf[1]);
+		fprintf(stderr, "[ %d ] received sum Exscan %3d %3d\n", rank, recvbuf[0], recvbuf[1]);
 	MPI_Finalize();
 	return 0;
 }

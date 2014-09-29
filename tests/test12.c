@@ -73,7 +73,7 @@ int main(int argc, char **argv)
 			fprintf(stderr, "MPI_Unpack failed.\n");
 			MPI_Abort(MPI_COMM_WORLD, 1);
 		}
-		fprintf(stderr, "[ %d ] recieved: %d %d %d %g %g %g %g %g %g %g\n", rank, _0[0], _12[0], _12[1], _345[0], _345[1], _345[2], _6789[0], _6789[1], _6789[2], _6789[3]);
+		fprintf(stderr, "[ %d ] received: %d %d %d %g %g %g %g %g %g %g\n", rank, _0[0], _12[0], _12[1], _345[0], _345[1], _345[2], _6789[0], _6789[1], _6789[2], _6789[3]);
 	}
 	MPI_Finalize();
 	return 0;

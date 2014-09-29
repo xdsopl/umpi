@@ -99,7 +99,7 @@ int main(int argc, char **argv)
 	for (int j = 0; j < size; j++) {
 		MPI_Barrier(MPI_COMM_WORLD);
 		if (j == rank) {
-			fprintf(stderr, "[ %d ] recieved:", rank);
+			fprintf(stderr, "[ %d ] received:", rank);
 			for (int i = 0; i < size; i++)
 				fprintf(stderr, " (%d %g %g %d %d %d %d %d %d %d)", recv[i]._0, recv[i]._12[0], recv[i]._12[1], recv[i]._34[0], recv[i]._34[1], recv[i]._5, recv[i]._6, recv[i]._7, recv[i]._8, recv[i]._9);
 			fprintf(stderr, "\n");

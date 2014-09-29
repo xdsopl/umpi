@@ -28,7 +28,7 @@ int main(int argc, char **argv)
 		fprintf(stderr, "MPI_Allreduce failed\n");
 		MPI_Abort(MPI_COMM_WORLD, 1);
 	}
-	fprintf(stderr, "[ %d ] recieved max Allreduce %d %d\n", rank, recvbuf[0], recvbuf[1]);
+	fprintf(stderr, "[ %d ] received max Allreduce %d %d\n", rank, recvbuf[0], recvbuf[1]);
 	MPI_Finalize();
 	return 0;
 }

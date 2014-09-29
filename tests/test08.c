@@ -43,7 +43,7 @@ int main(int argc, char **argv)
 		}
 		stop = MPI_Wtime();
 		msec = 1000 * (stop - start);
-		fprintf(stderr, "[ %d ] recieved Gather \"%s\" after %d milliseconds.\n", rank, recvbuf, msec);
+		fprintf(stderr, "[ %d ] received Gather \"%s\" after %d milliseconds.\n", rank, recvbuf, msec);
 	} else {
 		start = MPI_Wtime();
 		if (MPI_Gather(sendbuf, 1, MPI_CHAR, 0, 0, 0, root, MPI_COMM_WORLD)) {

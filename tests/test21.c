@@ -52,7 +52,7 @@ int main(int argc, char **argv)
 		fprintf(stderr, "MPI_Allgatherv failed\n");
 		MPI_Abort(MPI_COMM_WORLD, 1);
 	}
-	fprintf(stderr, "[ %d ] recieved Allgatherv \"%s\"\n", rank, buf);
+	fprintf(stderr, "[ %d ] received Allgatherv \"%s\"\n", rank, buf);
 	MPI_Finalize();
 	return 0;
 }

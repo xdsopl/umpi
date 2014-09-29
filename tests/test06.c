@@ -63,7 +63,7 @@ int main(int argc, char **argv)
 					fprintf(stderr, "MPI_Recv failed\n");
 					MPI_Abort(MPI_COMM_WORLD, 1);
 				}
-				fprintf(stderr, "[ %d ] recieved \"%s\" of %d chars.\n", rank, msg, count);
+				fprintf(stderr, "[ %d ] received \"%s\" of %d chars.\n", rank, msg, count);
 				free(msg);
 			}
 		}

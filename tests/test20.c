@@ -57,13 +57,13 @@ int main(int argc, char **argv)
 			fprintf(stderr, "MPI_Gatherv failed\n");
 			MPI_Abort(MPI_COMM_WORLD, 1);
 		}
-		fprintf(stderr, "[ %d ] recieved Gatherv \"%s\"\n", rank, recvbuf);
+		fprintf(stderr, "[ %d ] received Gatherv \"%s\"\n", rank, recvbuf);
 	}
 	if (MPI_Bcast(recvbuf, totalcount, MPI_CHAR, 0, MPI_COMM_WORLD)) {
 		fprintf(stderr, "MPI_Bcast failed\n");
 		MPI_Abort(MPI_COMM_WORLD, 1);
 	}
-	fprintf(stderr, "[ %d ] recieved Bcast \"%s\"\n", rank, recvbuf);
+	fprintf(stderr, "[ %d ] received Bcast \"%s\"\n", rank, recvbuf);
 	MPI_Finalize();
 	return 0;
 }

@@ -25,7 +25,7 @@ int main(int argc, char **argv)
 		fprintf(stderr, "MPI_Scan failed\n");
 		MPI_Abort(MPI_COMM_WORLD, 1);
 	}
-	fprintf(stderr, "[ %d ] recieved sum Scan %3d %3d\n", rank, recvbuf[0], recvbuf[1]);
+	fprintf(stderr, "[ %d ] received sum Scan %3d %3d\n", rank, recvbuf[0], recvbuf[1]);
 	MPI_Finalize();
 	return 0;
 }

@@ -39,7 +39,7 @@ int main(int argc, char **argv)
 	}
 	stop = MPI_Wtime();
 	msec = 1000 * (stop - start);
-	fprintf(stderr, "[ %d ] recieved in place Allgather \"%s\" after %d milliseconds.\n", rank, buf, msec);
+	fprintf(stderr, "[ %d ] received in place Allgather \"%s\" after %d milliseconds.\n", rank, buf, msec);
 	MPI_Finalize();
 	return 0;
 }

@@ -34,7 +34,7 @@ int main(int argc, char **argv)
 				fprintf(stderr, "MPI_Gather failed\n");
 				MPI_Abort(MPI_COMM_WORLD, 1);
 			}
-			fprintf(stderr, "[ %d ] recieved Gather \"%s\"\n", rank, recvbuf);
+			fprintf(stderr, "[ %d ] received Gather \"%s\"\n", rank, recvbuf);
 		} else {
 			if (MPI_Gather(sendbuf, 1, MPI_CHAR, 0, 0, 0, root, MPI_COMM_WORLD)) {
 				fprintf(stderr, "MPI_Gather failed\n");
